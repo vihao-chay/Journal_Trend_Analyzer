@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/author_model.dart';
 import '../models/global_overview.dart';
@@ -13,11 +16,14 @@ class SearchProvider extends ChangeNotifier {
     bool autoLoadGlobalOverview = true,
   }) : _apiService = apiService ?? ApiService() {
     if (autoLoadGlobalOverview) {
+      loadRecentSearches();
       loadGlobalOverview();
     }
   }
 
   final ApiService _apiService;
+
+  static const _recentSearchesKey = 'recent_searches_v1';
 
   GlobalOverview? globalOverview;
   bool isGlobalLoading = false;
@@ -33,8 +39,30 @@ class SearchProvider extends ChangeNotifier {
   String? searchError;
   bool hasSearched = false;
 
+  List<String> recentSearches = const [];
+
   DashboardStats get searchDashboardStats =>
       DashboardStats.fromPublications(publications);
+
+  Future<void> loadRecentSearches() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_recentSearchesKey) ?? const <String>[];
+      recentSearches = list;
+      notifyListeners();
+    } catch (_) {
+      recentSearches = const [];
+    }
+  }
+
+  Future<void> clearRecentSearches() async {
+    recentSearches = const [];
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_recentSearchesKey);
+    } catch (_) {}
+  }
 
   Future<void> loadGlobalOverview() async {
     isGlobalLoading = true;
@@ -107,6 +135,8 @@ class SearchProvider extends ChangeNotifier {
           .map(AuthorModel.fromMap)
           .toList(growable: false);
       searchError = null;
+
+      await _recordRecentSearch(trimmed);
     } on ApiException catch (exception) {
       _resetSearchResults();
       searchError = exception.message;
@@ -117,6 +147,29 @@ class SearchProvider extends ChangeNotifier {
       isSearchLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _recordRecentSearch(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+
+    final updated = <String>[
+      normalized,
+      ...recentSearches.where(
+        (item) => item.toLowerCase() != normalized.toLowerCase(),
+      ),
+    ];
+    if (updated.length > 10) {
+      updated.removeRange(10, updated.length);
+    }
+
+    recentSearches = List<String>.unmodifiable(updated);
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_recentSearchesKey, updated);
+    } catch (_) {}
   }
 
   void _resetSearchResults() {

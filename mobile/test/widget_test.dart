@@ -15,10 +15,10 @@ SearchProvider _testSearchProvider() {
       totalSources: 42,
       publicationTrend: const {'2020': 1200000, '2021': 1300000, '2022': 1400000},
       topJournals: const [
-        JournalModel(displayName: 'Nature', worksCount: 50000),
+        JournalModel(id: 'https://openalex.org/S1', displayName: 'Nature', worksCount: 50000),
       ],
       topAuthors: const [
-        AuthorModel(displayName: 'Jane Doe', worksCount: 400),
+        AuthorModel(id: 'https://openalex.org/A1', displayName: 'Jane Doe', worksCount: 400),
       ],
       peakYear: 2022,
       peakYearCount: 1400000,
@@ -40,21 +40,25 @@ void main() {
 
     expect(find.text('Journal Trend Analyzer'), findsOneWidget);
     expect(find.text('Publication Search'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
-    expect(find.text('Dashboard'), findsOneWidget);
-    expect(find.text('Trends'), findsOneWidget);
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Journal'), findsOneWidget);
+    expect(find.text('Keywords'), findsOneWidget);
+    expect(find.text('Profile'), findsOneWidget);
 
-    await tester.tap(find.text('Dashboard'));
+    await tester.tap(find.text('Journal'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Research Dashboard'), findsOneWidget);
-    expect(find.text('Global statistics from the full OpenAlex catalog.'), findsOneWidget);
-    expect(find.text('Works'), findsOneWidget);
+    expect(find.text('Journals'), findsOneWidget);
 
-    await tester.tap(find.text('Trends'));
+    await tester.tap(find.text('Keywords'));
     await tester.pumpAndSettle();
 
     expect(find.text('Publication Trend Analysis'), findsOneWidget);
     expect(find.text('Publications per Year'), findsOneWidget);
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profile'), findsWidgets);
   });
 }

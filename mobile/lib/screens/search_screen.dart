@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,9 +18,11 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -31,6 +35,18 @@ class _SearchScreenState extends State<SearchScreen> {
 
     FocusScope.of(context).unfocus();
     context.read<SearchProvider>().search(keyword);
+  }
+
+  void _scheduleDebouncedSearch(String value) {
+    final keyword = value.trim();
+    _debounce?.cancel();
+    if (keyword.length < 3) {
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      context.read<SearchProvider>().search(keyword);
+    });
   }
 
   @override
@@ -46,6 +62,9 @@ class _SearchScreenState extends State<SearchScreen> {
     );
     final publications = context.select<SearchProvider, List<PublicationModel>>(
       (provider) => provider.publications,
+    );
+    final recents = context.select<SearchProvider, List<String>>(
+      (provider) => provider.recentSearches,
     );
 
     return Padding(
@@ -66,8 +85,26 @@ class _SearchScreenState extends State<SearchScreen> {
           _SearchField(
             controller: _searchController,
             onSubmitted: _submitSearch,
+            onChanged: _scheduleDebouncedSearch,
             onSearchPressed: () => _submitSearch(),
           ),
+          if (recents.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final item in recents.take(8))
+                  ActionChip(
+                    label: Text(item),
+                    onPressed: () {
+                      _searchController.text = item;
+                      _submitSearch(item);
+                    },
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: AppSpacing.medium),
           Expanded(
             child: _SearchResultsView(
@@ -87,11 +124,13 @@ class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.controller,
     required this.onSubmitted,
+    required this.onChanged,
     required this.onSearchPressed,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onSubmitted;
+  final ValueChanged<String> onChanged;
   final VoidCallback onSearchPressed;
 
   @override
@@ -104,6 +143,7 @@ class _SearchField extends StatelessWidget {
       child: TextField(
         controller: controller,
         onSubmitted: onSubmitted,
+        onChanged: onChanged,
         textInputAction: TextInputAction.search,
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: InputDecoration(
