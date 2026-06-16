@@ -367,6 +367,8 @@ class _SearchSnapshotCard extends StatelessWidget {
 class TrendsScreen extends StatelessWidget {
   const TrendsScreen({super.key});
 
+  static const int _maxYearsDisplayed = 40;
+
   @override
   Widget build(BuildContext context) {
     final hasSearched = context.select<SearchProvider, bool>(
@@ -412,9 +414,14 @@ class TrendsScreen extends StatelessWidget {
         : (globalOverview?.topAuthors ?? const []);
 
     final trendPoints = trendPointsFromMap(trendSource);
+    // The OpenAlex global trend spans centuries (e.g. 1400–2028), which makes
+    // recent years unreadable on mobile. Default to a recent sliding window.
+    final displayedPoints = trendPoints.length > _maxYearsDisplayed
+        ? trendPoints.sublist(trendPoints.length - _maxYearsDisplayed)
+        : trendPoints;
     final topJournals = journalStatsFromModels(journalSource);
     final topAuthors = journalStatsFromAuthors(authorSource);
-    final yearRange = _yearRangeLabel(trendPoints);
+    final yearRange = _yearRangeLabel(displayedPoints);
     final isLoading = usingSearchData
         ? isSearchLoading
         : isGlobalLoading;
@@ -422,11 +429,11 @@ class TrendsScreen extends StatelessWidget {
         ? searchError
         : globalError;
 
-    if (isLoading && trendPoints.isEmpty) {
+    if (isLoading && displayedPoints.isEmpty) {
       return const AppLoadingState(message: 'Loading trend data...');
     }
 
-    if (error != null && trendPoints.isEmpty) {
+    if (error != null && displayedPoints.isEmpty) {
       return AppErrorState(
         message: error,
         onRetry: usingSearchData
@@ -470,13 +477,13 @@ class TrendsScreen extends StatelessWidget {
               SizedBox(
                 height: 220,
                 width: double.infinity,
-                child: trendPoints.isEmpty
+                child: displayedPoints.isEmpty
                     ? const AppEmptyState(
                         icon: Icons.show_chart,
                         title: 'No trend data',
                         message: 'Yearly publication data is not available.',
                       )
-                    : PublicationLineChart(points: trendPoints),
+                    : PublicationLineChart(points: displayedPoints),
               ),
             ],
           ),
@@ -660,6 +667,7 @@ class PublicationLinePainter extends CustomPainter {
         canvas,
         points.first.year.toString(),
         Offset(offsets.first.dx, size.height - 17),
+        maxWidth: size.width,
         alignCenter: true,
       );
       return;
@@ -673,6 +681,7 @@ class PublicationLinePainter extends CustomPainter {
         canvas,
         point.year.toString(),
         Offset(x, size.height - 17),
+        maxWidth: size.width,
         alignCenter: true,
       );
     }
@@ -683,6 +692,7 @@ class PublicationLinePainter extends CustomPainter {
         canvas,
         lastPoint.year.toString(),
         Offset(x, size.height - 17),
+        maxWidth: size.width,
         alignCenter: true,
       );
     }
@@ -692,6 +702,7 @@ class PublicationLinePainter extends CustomPainter {
     Canvas canvas,
     String text,
     Offset origin, {
+    required double maxWidth,
     bool alignCenter = false,
   }) {
     final painter = TextPainter(
@@ -705,7 +716,11 @@ class PublicationLinePainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    final dx = alignCenter ? origin.dx - painter.width / 2 : origin.dx;
+    final rawDx = alignCenter ? origin.dx - painter.width / 2 : origin.dx;
+    const padding = 2.0;
+    final minDx = padding;
+    final maxDx = (maxWidth - painter.width - padding).clamp(minDx, maxWidth);
+    final dx = rawDx.clamp(minDx, maxDx);
     painter.paint(canvas, Offset(dx, origin.dy));
   }
 

@@ -61,7 +61,6 @@ class _SearchScreenState extends State<SearchScreen> {
           const ScreenHeader(
             title: 'Publication Search',
             subtitle: 'Explore scholarly works from the OpenAlex catalog.',
-            badge: 'Live',
           ),
           const SizedBox(height: AppSpacing.medium),
           _SearchField(
@@ -153,7 +152,15 @@ class _SearchResultsView extends StatelessWidget {
     }
 
     if (isLoading) {
-      return const AppLoadingState(message: 'Searching OpenAlex...');
+      return ListView.separated(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: AppSpacing.large),
+        itemCount: 6,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (_, _) => const AppShimmer(
+          child: _SkeletonPublicationCard(),
+        ),
+      );
     }
 
     if (error != null) {
@@ -293,6 +300,95 @@ class PublicationCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SkeletonPublicationCard extends StatelessWidget {
+  const _SkeletonPublicationCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final base = AppColors.border.withValues(alpha: 0.55);
+    final highlight = AppColors.border.withValues(alpha: 0.25);
+
+    Widget bar({double? width, double height = 10}) {
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: base,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.border),
+        boxShadow: appCardShadow,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            decoration: BoxDecoration(
+              color: highlight,
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(AppRadius.medium),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 22,
+                        decoration: BoxDecoration(
+                          color: highlight,
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: bar()),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  bar(width: double.infinity, height: 12),
+                  const SizedBox(height: 8),
+                  bar(width: 220, height: 12),
+                  const SizedBox(height: 12),
+                  bar(width: 180),
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      width: 120,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: highlight,
+                        borderRadius: BorderRadius.circular(AppRadius.small),
+                        border: Border.all(
+                          color: highlight.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
