@@ -37,12 +37,31 @@ class ApiService {
     return results.map(PublicationModel.fromJson).toList(growable: false);
   }
 
+  /// Total entity count from `meta.count` ([OpenAlex list response](https://developers.openalex.org/api-reference/introduction)).
+  Future<int> fetchEntityCount(String path) async {
+    final payload = await _getJson(_buildUri(path, {'per_page': '1'}));
+    final meta = _asMap(payload['meta']);
+    return _asInt(meta?['count']);
+  }
+
+  Future<Map<String, int>> fetchGlobalPublicationTrend() async {
+    final payload = await _getJson(
+      _buildUri('/works', {'group_by': 'publication_year'}),
+    );
+    return _parsePublicationTrend(payload);
+  }
+
   Future<Map<String, int>> fetchPublicationTrend(String query) async {
-    final uri = _buildUri('/works', {
-      'search': query.trim(),
-      'group_by': 'publication_year',
-    });
-    final payload = await _getJson(uri);
+    final payload = await _getJson(
+      _buildUri('/works', {
+        'search': query.trim(),
+        'group_by': 'publication_year',
+      }),
+    );
+    return _parsePublicationTrend(payload);
+  }
+
+  Map<String, int> _parsePublicationTrend(Map<String, dynamic> payload) {
     final groupedRows = _asJsonList(payload['group_by']);
     final trend = <String, int>{};
 
@@ -68,10 +87,38 @@ class ApiService {
     return Map<String, int>.fromEntries(sortedEntries);
   }
 
+  Future<List<Map<String, dynamic>>> fetchGlobalTopElements(
+    String elementType,
+  ) async {
+    return _fetchTopElements(elementType);
+  }
+
   Future<List<Map<String, dynamic>>> fetchTopElements(
     String query,
     String elementType,
   ) async {
+    return _fetchTopElements(elementType, search: query.trim());
+  }
+
+  Future<PublicationModel?> fetchMostCitedWork() async {
+    final payload = await _getJson(
+      _buildUri('/works', {
+        'sort': 'cited_by_count:desc',
+        'per_page': '1',
+      }),
+    );
+    final results = _asJsonList(payload['results']);
+    if (results.isEmpty) {
+      return null;
+    }
+
+    return PublicationModel.fromJson(results.first);
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchTopElements(
+    String elementType, {
+    String? search,
+  }) async {
     final normalizedType = elementType.trim().toLowerCase();
     final path = switch (normalizedType) {
       'authors' => '/authors',
@@ -83,11 +130,15 @@ class ApiService {
       ),
     };
 
-    final uri = _buildUri(path, {
-      'search': query.trim(),
+    final queryParameters = <String, String>{
       'sort': 'works_count:desc',
       'per_page': '10',
-    });
+    };
+    if (search != null && search.isNotEmpty) {
+      queryParameters['search'] = search;
+    }
+
+    final uri = _buildUri(path, queryParameters);
     final payload = await _getJson(uri);
     final results = _asJsonList(payload['results']);
 
@@ -146,6 +197,16 @@ class ApiService {
     } catch (_) {
       throw const ApiException('Something went wrong while loading data.');
     }
+  }
+
+  static Map<String, dynamic>? _asMap(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
   }
 
   static List<Map<String, dynamic>> _asJsonList(Object? value) {

@@ -7,6 +7,7 @@ class PublicationModel {
     required this.doi,
     required this.journalName,
     required this.authors,
+    this.abstractText,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class PublicationModel {
   final String? doi;
   final String journalName;
   final List<String> authors;
+  final String? abstractText;
 
   factory PublicationModel.fromJson(Map<String, dynamic> json) {
     return PublicationModel(
@@ -29,7 +31,68 @@ class PublicationModel {
       doi: _asNonEmptyString(json['doi']),
       journalName: _extractJournalName(json),
       authors: _extractAuthors(json),
+      abstractText: decodeAbstractInvertedIndex(json['abstract_inverted_index']),
     );
+  }
+
+  /// Reconstructs OpenAlex `abstract_inverted_index` into readable text.
+  static String? decodeAbstractInvertedIndex(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+
+    final invertedIndex = value.map(
+      (key, positions) => MapEntry(key.toString(), positions),
+    );
+    if (invertedIndex.isEmpty) {
+      return null;
+    }
+
+    var maxIndex = -1;
+    for (final positions in invertedIndex.values) {
+      if (positions is! List) {
+        continue;
+      }
+      for (final position in positions) {
+        final index = _positionToInt(position);
+        if (index != null && index > maxIndex) {
+          maxIndex = index;
+        }
+      }
+    }
+
+    if (maxIndex < 0) {
+      return null;
+    }
+
+    final words = List<String>.filled(maxIndex + 1, '');
+    invertedIndex.forEach((word, positions) {
+      if (positions is! List) {
+        return;
+      }
+      for (final position in positions) {
+        final index = _positionToInt(position);
+        if (index != null && index >= 0 && index < words.length) {
+          words[index] = word;
+        }
+      }
+    });
+
+    final abstractText = words.join(' ').trim();
+    return abstractText.isEmpty ? null : abstractText;
+  }
+
+  static int? _positionToInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -41,6 +104,7 @@ class PublicationModel {
       'doi': doi,
       'journal_name': journalName,
       'authors': List<String>.from(authors),
+      'abstract': abstractText,
     };
   }
 

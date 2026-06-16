@@ -1,148 +1,44 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'core/theme/app_theme.dart';
+import 'models/author_model.dart';
+import 'models/journal_model.dart';
+import 'providers/search_provider.dart';
 import 'screens/search_screen.dart';
+import 'services/publication_analytics.dart';
+import 'widgets/app_widgets.dart';
 
 void main() {
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.searchProvider});
+
+  final SearchProvider? searchProvider;
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Journal Trend Analyzer',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const JournalShell(),
-    );
-  }
-}
-
-class AppColors {
-  AppColors._();
-
-  static const primary = Color(0xFF1A365D);
-  static const secondary = Color(0xFF2B6CB0);
-  static const accent = Color(0xFFDD6B20);
-  static const chartLine = Color(0xFF319795);
-  static const background = Color(0xFFF7FAFC);
-  static const surface = Color(0xFFFFFFFF);
-  static const textPrimary = Color(0xFF2D3748);
-  static const textSecondary = Color(0xFF718096);
-  static const border = Color(0xFFE2E8F0);
-}
-
-class AppTheme {
-  AppTheme._();
-
-  static ThemeData get lightTheme {
-    return ThemeData(
-      useMaterial3: true,
-      scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        secondary: AppColors.secondary,
-        surface: AppColors.surface,
-        error: Color(0xFFE53E3E),
-      ),
-      fontFamily: 'Roboto',
-      textTheme: const TextTheme(
-        headlineLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 22,
-          fontWeight: FontWeight.w800,
-          height: 1.15,
-        ),
-        titleLarge: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
-        titleMedium: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          height: 1.25,
-        ),
-        titleSmall: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-        bodyMedium: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 14,
-          height: 1.45,
-        ),
-        bodySmall: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-        labelLarge: TextStyle(
-          color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.primary,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: AppColors.primary,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      cardTheme: CardThemeData(
-        color: AppColors.surface,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.border),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.secondary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        height: 68,
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        indicatorColor: AppColors.secondary.withValues(alpha: 0.18),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            color: selected ? AppColors.secondary : AppColors.textPrimary,
-            fontSize: 11,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            color: selected ? AppColors.secondary : AppColors.textPrimary,
-            size: 21,
-          );
-        }),
+    return ChangeNotifierProvider(
+      create: (_) => searchProvider ?? SearchProvider(),
+      child: MaterialApp(
+        title: 'Journal Trend Analyzer',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        home: const JournalShell(),
       ),
     );
   }
 }
 
 class JournalStat {
-  const JournalStat(this.name, this.citations, this.score);
+  const JournalStat(this.name, this.value, this.score);
 
   final String name;
-  final int citations;
+  final int value;
   final double score;
 }
 
@@ -153,25 +49,56 @@ class TrendPoint {
   final int publications;
 }
 
-const trendPoints = [
-  TrendPoint(2016, 38),
-  TrendPoint(2017, 55),
-  TrendPoint(2018, 76),
-  TrendPoint(2019, 90),
-  TrendPoint(2020, 104),
-  TrendPoint(2021, 131),
-  TrendPoint(2022, 156),
-  TrendPoint(2023, 184),
-  TrendPoint(2024, 196),
-];
+List<TrendPoint> trendPointsFromMap(Map<String, int> trend) {
+  return trend.entries
+      .map((entry) {
+        final year = int.tryParse(entry.key);
+        if (year == null) {
+          return null;
+        }
+        return TrendPoint(year, entry.value);
+      })
+      .whereType<TrendPoint>()
+      .toList(growable: false);
+}
 
-const topJournals = [
-  JournalStat('Journal of Artificial Intelligence Research', 12450, 1.00),
-  JournalStat('IEEE Transactions on Pattern Analysis', 9800, 0.79),
-  JournalStat('Conference on Neural Information Processing', 8750, 0.70),
-  JournalStat('International Conference on Machine Learning', 6540, 0.53),
-  JournalStat('Human Machine Intelligence', 4900, 0.39),
-];
+List<JournalStat> journalStatsFromModels(List<JournalModel> journals) {
+  if (journals.isEmpty) {
+    return const [];
+  }
+
+  final maxValue = journals
+      .map((journal) => journal.worksCount)
+      .reduce(math.max);
+
+  return journals
+      .map(
+        (journal) => JournalStat(
+          journal.displayName,
+          journal.worksCount,
+          maxValue == 0 ? 0 : journal.worksCount / maxValue,
+        ),
+      )
+      .toList(growable: false);
+}
+
+List<JournalStat> journalStatsFromAuthors(List<AuthorModel> authors) {
+  if (authors.isEmpty) {
+    return const [];
+  }
+
+  final maxValue = authors.map((author) => author.worksCount).reduce(math.max);
+
+  return authors
+      .map(
+        (author) => JournalStat(
+          author.displayName,
+          author.worksCount,
+          maxValue == 0 ? 0 : author.worksCount / maxValue,
+        ),
+      )
+      .toList(growable: false);
+}
 
 class JournalShell extends StatefulWidget {
   const JournalShell({super.key});
@@ -188,73 +115,42 @@ class _JournalShellState extends State<JournalShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: JournalAppBar(showBack: false),
+      backgroundColor: AppColors.background,
+      appBar: const GradientAppBar(),
       body: IndexedStack(index: _selectedIndex, children: _pages),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
           color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) {
-            setState(() => _selectedIndex = index);
-          },
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
-            NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Dashboard',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.trending_up),
-              label: 'Trends',
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class JournalAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const JournalAppBar({super.key, required this.showBack, this.onBack});
-
-  final bool showBack;
-  final VoidCallback? onBack;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(52);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      automaticallyImplyLeading: false,
-      leadingWidth: showBack ? 42 : 0,
-      leading: showBack
-          ? IconButton(
-              tooltip: 'Back',
-              icon: const Icon(Icons.arrow_back, size: 22),
-              onPressed: onBack,
-            )
-          : null,
-      titleSpacing: showBack ? 0 : 14,
-      title: const Row(
-        children: [
-          Icon(Icons.auto_stories, size: 18, color: AppColors.primary),
-          SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'Journal Trend Analyzer',
-              overflow: TextOverflow.ellipsis,
-            ),
+        child: SafeArea(
+          top: false,
+          child: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (index) {
+              setState(() => _selectedIndex = index);
+            },
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
+              NavigationDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: 'Dashboard',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.show_chart_outlined),
+                selectedIcon: Icon(Icons.show_chart),
+                label: 'Trends',
+              ),
+            ],
           ),
-        ],
-      ),
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: AppColors.border),
+        ),
       ),
     );
   }
@@ -263,88 +159,207 @@ class JournalAppBar extends StatelessWidget implements PreferredSizeWidget {
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  static const _statColors = [
+    AppColors.secondary,
+    AppColors.chartLine,
+    AppColors.accent,
+    AppColors.primary,
+  ];
+
   @override
   Widget build(BuildContext context) {
-    const stats = [
-      ('1,284', 'Publications', Icons.article_outlined),
-      ('68.4K', 'Citations', Icons.format_quote),
-      ('214', 'Authors', Icons.groups_outlined),
-      ('42', 'Journals', Icons.library_books_outlined),
+    final isLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isGlobalLoading,
+    );
+    final overview = context.select<SearchProvider, dynamic>(
+      (provider) => provider.globalOverview,
+    );
+    final error = context.select<SearchProvider, String?>(
+      (provider) => provider.globalError,
+    );
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
+    final keyword = context.select<SearchProvider, String?>(
+      (provider) => provider.keyword,
+    );
+    final searchSnapshot = context.select<SearchProvider, DashboardStats>(
+      (provider) => provider.searchDashboardStats,
+    );
+
+    if (isLoading && overview == null) {
+      return const AppLoadingState(message: 'Loading OpenAlex statistics...');
+    }
+
+    if (overview == null) {
+      return AppErrorState(
+        message: error ?? 'Unable to load OpenAlex statistics.',
+        onRetry: () =>
+            context.read<SearchProvider>().loadGlobalOverview(),
+      );
+    }
+
+    final gridStats = [
+      (formatCompactNumber(overview.totalWorks), 'Works', Icons.article_outlined),
+      (
+        formatCompactNumber(overview.totalAuthors),
+        'Authors',
+        Icons.groups_outlined,
+      ),
+      (
+        formatCompactNumber(overview.totalSources),
+        'Journals',
+        Icons.library_books_outlined,
+      ),
+      (
+        overview.mostCitedWork == null
+            ? '—'
+            : formatCompactNumber(overview.mostCitedWork!.citedByCount),
+        'Top Citations',
+        Icons.format_quote,
+      ),
     ];
 
+    final highlights = <(IconData, String)>[
+      if (overview.peakYear != null)
+        (
+          Icons.calendar_month,
+          'Peak publication year: ${overview.peakYear} (${formatCompactNumber(overview.peakYearCount)} works)',
+        ),
+      if (overview.mostCitedWork != null)
+        (Icons.star, 'Most cited: ${overview.mostCitedWork!.title}'),
+      if (overview.topJournals.isNotEmpty)
+        (
+          Icons.library_books,
+          'Leading journal: ${overview.topJournals.first.displayName}',
+        ),
+      if (overview.topAuthors.isNotEmpty)
+        (
+          Icons.person,
+          'Leading author: ${overview.topAuthors.first.displayName}',
+        ),
+    ];
+
+    final journalMomentum = journalStatsFromModels(
+      overview.topJournals.take(5).toList(growable: false),
+    );
+
     return ScreenScroll(
+      onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
       children: [
-        const Text(
-          'Research Dashboard',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
+        const ScreenHeader(
+          title: 'Research Dashboard',
+          subtitle: 'Global statistics from the full OpenAlex catalog.',
+          badge: 'OpenAlex',
         ),
-        const SizedBox(height: 4),
-        Text(
-          'High-level view of the analyzed publication corpus.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.medium),
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: stats.length,
+          itemCount: gridStats.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.35,
+            childAspectRatio: 1.15,
           ),
           itemBuilder: (context, index) {
-            final stat = stats[index];
-            return StatCard(value: stat.$1, label: stat.$2, icon: stat.$3);
+            final stat = gridStats[index];
+            return StatCard(
+              value: stat.$1,
+              label: stat.$2,
+              icon: stat.$3,
+              accentColor: _statColors[index % _statColors.length],
+            );
           },
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.medium),
         SectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SectionTitle(
                 icon: Icons.insights,
-                title: 'Dominant Topics',
+                title: 'Global Highlights',
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: const [
-                  TagChip(label: 'Machine Learning'),
-                  TagChip(label: 'Decision-Making'),
-                  TagChip(label: 'Neural Networks'),
-                  TagChip(label: 'Human-AI Interaction'),
-                  TagChip(label: 'Computer Vision'),
-                ],
-              ),
+              for (final highlight in highlights)
+                HighlightTile(icon: highlight.$1, text: highlight.$2),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionTitle(
-                icon: Icons.bar_chart,
-                title: 'Citation Momentum',
-              ),
-              const SizedBox(height: 12),
-              for (final journal in topJournals.take(3)) ...[
-                JournalBarRow(journal: journal),
-                const SizedBox(height: 12),
+        if (journalMomentum.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.medium),
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle(
+                  icon: Icons.bar_chart,
+                  title: 'Top Journal Contributions',
+                ),
+                const SizedBox(height: 8),
+                for (var i = 0; i < journalMomentum.length; i++)
+                  RankedBarRow(
+                    rank: i + 1,
+                    name: journalMomentum[i].name,
+                    value: journalMomentum[i].value,
+                    score: journalMomentum[i].score,
+                    valueLabel: '${formatCompactNumber(journalMomentum[i].value)} works',
+                  ),
               ],
+            ),
+          ),
+        ],
+        if (hasSearched) ...[
+          const SizedBox(height: AppSpacing.medium),
+          _SearchSnapshotCard(keyword: keyword, stats: searchSnapshot),
+        ],
+      ],
+    );
+  }
+}
+
+class _SearchSnapshotCard extends StatelessWidget {
+  const _SearchSnapshotCard({required this.keyword, required this.stats});
+
+  final String? keyword;
+  final DashboardStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      accentColor: AppColors.chartLine,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            icon: Icons.search,
+            title: keyword == null ? 'Latest Search' : 'Search: "$keyword"',
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              MetricPill(
+                label: '${formatCompactNumber(stats.totalPublications)} papers',
+                icon: Icons.article_outlined,
+              ),
+              MetricPill(
+                label: '${formatCompactNumber(stats.totalCitations)} citations',
+                icon: Icons.format_quote,
+                accentColor: AppColors.accent,
+              ),
+              MetricPill(
+                label: 'avg ${stats.averageCitations.toStringAsFixed(1)}',
+                icon: Icons.analytics_outlined,
+                accentColor: AppColors.chartLine,
+              ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -354,24 +369,86 @@ class TrendsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
+    final isSearchLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isSearchLoading,
+    );
+    final isGlobalLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isGlobalLoading,
+    );
+    final searchTrend = context.select<SearchProvider, Map<String, int>>(
+      (provider) => provider.publicationTrend,
+    );
+    final searchJournals = context.select<SearchProvider, List<JournalModel>>(
+      (provider) => provider.topJournals,
+    );
+    final searchAuthors = context.select<SearchProvider, List<AuthorModel>>(
+      (provider) => provider.topAuthors,
+    );
+    final globalOverview = context.select<SearchProvider, dynamic>(
+      (provider) => provider.globalOverview,
+    );
+    final keyword = context.select<SearchProvider, String?>(
+      (provider) => provider.keyword,
+    );
+    final searchError = context.select<SearchProvider, String?>(
+      (provider) => provider.searchError,
+    );
+    final globalError = context.select<SearchProvider, String?>(
+      (provider) => provider.globalError,
+    );
+
+    final usingSearchData = hasSearched && !isSearchLoading;
+    final trendSource = usingSearchData
+        ? searchTrend
+        : (globalOverview?.publicationTrend ?? const {});
+    final journalSource = usingSearchData
+        ? searchJournals
+        : (globalOverview?.topJournals ?? const []);
+    final authorSource = usingSearchData
+        ? searchAuthors
+        : (globalOverview?.topAuthors ?? const []);
+
+    final trendPoints = trendPointsFromMap(trendSource);
+    final topJournals = journalStatsFromModels(journalSource);
+    final topAuthors = journalStatsFromAuthors(authorSource);
+    final yearRange = _yearRangeLabel(trendPoints);
+    final isLoading = usingSearchData
+        ? isSearchLoading
+        : isGlobalLoading;
+    final error = usingSearchData
+        ? searchError
+        : globalError;
+
+    if (isLoading && trendPoints.isEmpty) {
+      return const AppLoadingState(message: 'Loading trend data...');
+    }
+
+    if (error != null && trendPoints.isEmpty) {
+      return AppErrorState(
+        message: error,
+        onRetry: usingSearchData
+            ? null
+            : () => context.read<SearchProvider>().loadGlobalOverview(),
+      );
+    }
+
     return ScreenScroll(
+      onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
       children: [
-        const Text(
-          'Publication Trend Analysis',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
+        ScreenHeader(
+          title: 'Publication Trend Analysis',
+          subtitle: usingSearchData && keyword != null
+              ? 'Trends for "$keyword" from OpenAlex.'
+              : 'Global publication trends from the full OpenAlex catalog.',
+          badge: usingSearchData ? 'Filtered' : 'Global',
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Analyzing AI research corpus from 2016 to 2024.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.medium),
         SectionCard(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+          accentColor: AppColors.chartLine,
           child: Column(
             children: [
               Row(
@@ -386,296 +463,80 @@ class TrendsScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  MetricPill(label: '2016-2024'),
+                  MetricPill(label: yearRange, accentColor: AppColors.chartLine),
                 ],
               ),
-              const SizedBox(height: 8),
-              const SizedBox(
-                height: 218,
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 220,
                 width: double.infinity,
-                child: PublicationLineChart(points: trendPoints),
+                child: trendPoints.isEmpty
+                    ? const AppEmptyState(
+                        icon: Icons.show_chart,
+                        title: 'No trend data',
+                        message: 'Yearly publication data is not available.',
+                      )
+                    : PublicationLineChart(points: trendPoints),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        SectionCard(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Top 5 Research Journals',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'More',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      color: AppColors.primary,
-                    ),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              for (final journal in topJournals) ...[
-                JournalBarRow(journal: journal),
-                const SizedBox(height: 12),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class ScreenScroll extends StatelessWidget {
-  const ScreenScroll({super.key, required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: children,
-      ),
-    );
-  }
-}
-
-class SectionCard extends StatelessWidget {
-  const SectionCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(16),
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-        boxShadow: cardShadow,
-      ),
-      child: child,
-    );
-  }
-}
-
-class SectionTitle extends StatelessWidget {
-  const SectionTitle({super.key, required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: AppColors.primary, size: 20),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 14,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class StatCard extends StatelessWidget {
-  const StatCard({
-    super.key,
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final String value;
-  final String label;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.secondary, size: 22),
-          const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class TagChip extends StatelessWidget {
-  const TagChip({super.key, required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class MetricPill extends StatelessWidget {
-  const MetricPill({
-    super.key,
-    required this.label,
-    this.icon,
-    this.fillWidth = false,
-  });
-
-  final String label;
-  final IconData? icon;
-  final bool fillWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final pill = Container(
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppColors.secondary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: fillWidth ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: fillWidth
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.start,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, color: AppColors.secondary, size: 15),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.secondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (fillWidth) {
-      return SizedBox(width: double.infinity, child: pill);
-    }
-
-    return pill;
-  }
-}
-
-class JournalBarRow extends StatelessWidget {
-  const JournalBarRow({super.key, required this.journal});
-
-  final JournalStat journal;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Text(
-                journal.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+        if (topJournals.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.medium),
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle(
+                  icon: Icons.library_books,
+                  title: 'Top Research Journals',
                 ),
-              ),
+                const SizedBox(height: 8),
+                for (var i = 0; i < topJournals.take(5).length; i++)
+                  RankedBarRow(
+                    rank: i + 1,
+                    name: topJournals[i].name,
+                    value: topJournals[i].value,
+                    score: topJournals[i].score,
+                    valueLabel: '${formatCompactNumber(topJournals[i].value)} works',
+                  ),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(
-              _formatNumber(journal.citations),
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: journal.score,
-            minHeight: 6,
-            backgroundColor: AppColors.border,
-            color: AppColors.secondary,
           ),
-        ),
+        ],
+        if (topAuthors.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.medium),
+          SectionCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle(
+                  icon: Icons.person_outline,
+                  title: 'Top Authors',
+                ),
+                const SizedBox(height: 8),
+                for (var i = 0; i < topAuthors.take(5).length; i++)
+                  RankedBarRow(
+                    rank: i + 1,
+                    name: topAuthors[i].name,
+                    value: topAuthors[i].value,
+                    score: topAuthors[i].score,
+                    valueLabel: '${formatCompactNumber(topAuthors[i].value)} works',
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
+}
+
+String _yearRangeLabel(List<TrendPoint> points) {
+  if (points.isEmpty) {
+    return 'No data';
+  }
+  return '${points.first.year}–${points.last.year}';
 }
 
 class PublicationLineChart extends StatelessWidget {
@@ -685,7 +546,10 @@ class PublicationLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: PublicationLinePainter(points));
+    return CustomPaint(
+      painter: PublicationLinePainter(points),
+      child: const SizedBox.expand(),
+    );
   }
 }
 
@@ -724,8 +588,10 @@ class PublicationLinePainter extends CustomPainter {
     }
 
     final offsets = <Offset>[];
-    for (var index = 0; index < points.length; index++) {
-      final x = left + chartWidth * index / (points.length - 1);
+    final pointCount = points.length;
+    final xDivisor = pointCount > 1 ? pointCount - 1 : 1;
+    for (var index = 0; index < pointCount; index++) {
+      final x = left + chartWidth * index / xDivisor;
       final normalized = (points[index].publications - minValue) / valueRange;
       final y = top + chartHeight - (normalized * chartHeight * 0.86 + 8);
       offsets.add(Offset(x, y));
@@ -762,15 +628,13 @@ class PublicationLinePainter extends CustomPainter {
       ..close();
 
     final areaPaint = Paint()
-      ..shader = const LinearGradient(
-        colors: [Color(0x554C78A8), Color(0x004C78A8)],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTWH(left, top, chartWidth, chartHeight));
+      ..shader = AppColors.chartGradient.createShader(
+        Rect.fromLTWH(left, top, chartWidth, chartHeight),
+      );
     canvas.drawPath(areaPath, areaPaint);
 
     final linePaint = Paint()
-      ..color = AppColors.primary
+      ..color = AppColors.chartLine
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -781,7 +645,7 @@ class PublicationLinePainter extends CustomPainter {
       ..color = AppColors.surface
       ..style = PaintingStyle.fill;
     final pointBorderPaint = Paint()
-      ..color = AppColors.primary
+      ..color = AppColors.chartLine
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
@@ -791,16 +655,33 @@ class PublicationLinePainter extends CustomPainter {
         ..drawCircle(offset, 4.2, pointBorderPaint);
     }
 
-    final labels = <int>[2016, 2018, 2020, 2022, 2024];
-    for (final year in labels) {
-      final index = points.indexWhere((point) => point.year == year);
-      if (index == -1) {
-        continue;
-      }
-      final x = left + chartWidth * index / (points.length - 1);
+    if (pointCount == 1) {
       _drawLabel(
         canvas,
-        "'${year.toString().substring(2)}",
+        points.first.year.toString(),
+        Offset(offsets.first.dx, size.height - 17),
+        alignCenter: true,
+      );
+      return;
+    }
+
+    final labelStep = math.max(1, pointCount ~/ 4);
+    for (var index = 0; index < pointCount; index += labelStep) {
+      final point = points[index];
+      final x = left + chartWidth * index / xDivisor;
+      _drawLabel(
+        canvas,
+        point.year.toString(),
+        Offset(x, size.height - 17),
+        alignCenter: true,
+      );
+    }
+    if ((pointCount - 1) % labelStep != 0) {
+      final lastPoint = points.last;
+      final x = left + chartWidth;
+      _drawLabel(
+        canvas,
+        lastPoint.year.toString(),
         Offset(x, size.height - 17),
         alignCenter: true,
       );
@@ -832,26 +713,4 @@ class PublicationLinePainter extends CustomPainter {
   bool shouldRepaint(covariant PublicationLinePainter oldDelegate) {
     return oldDelegate.points != points;
   }
-}
-
-List<BoxShadow> get cardShadow {
-  return [
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.04),
-      blurRadius: 10,
-      offset: const Offset(0, 4),
-    ),
-  ];
-}
-
-String _formatNumber(int value) {
-  final raw = value.toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < raw.length; index++) {
-    if (index > 0 && (raw.length - index) % 3 == 0) {
-      buffer.write(',');
-    }
-    buffer.write(raw[index]);
-  }
-  return buffer.toString();
 }
