@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'screens/search_screen.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -136,30 +138,6 @@ class AppTheme {
   }
 }
 
-class Article {
-  const Article({
-    required this.type,
-    required this.topic,
-    required this.year,
-    required this.title,
-    required this.authors,
-    required this.citations,
-    required this.abstractText,
-    required this.keywords,
-    required this.doi,
-  });
-
-  final String type;
-  final String topic;
-  final String year;
-  final String title;
-  final String authors;
-  final int citations;
-  final String abstractText;
-  final List<String> keywords;
-  final String doi;
-}
-
 class JournalStat {
   const JournalStat(this.name, this.citations, this.score);
 
@@ -174,27 +152,6 @@ class TrendPoint {
   final int year;
   final int publications;
 }
-
-const featuredArticle = Article(
-  type: 'ARTICLE',
-  topic: 'Human-Interaction',
-  year: '2022',
-  title:
-      'Neural Substrates of Cognitive Flexibility in Complex Decision-Making Environments',
-  authors: 'Dr. Lily Chen, Dr. Robert Johnson, +9 authors',
-  citations: 342,
-  doi: 'https://doi.org/10.1016/j.neuro.2022.08.014',
-  keywords: [
-    'Cognitive Flexibility',
-    'fMRI',
-    'Executive Function',
-    'Decision-Making',
-    'Computational Modeling',
-  ],
-  abstractText:
-      'Cognitive flexibility, the ability to adaptively switch thinking or behavior in response to changing environmental demands, is a hallmark of higher-order executive function. This study investigates the underlying neural substrates supporting cognitive flexibility within complex multi-dimensional decision-making tasks. Utilizing functional magnetic resonance imaging (fMRI) combined with computational modeling, we analyzed the blood-oxygen-level-dependent (BOLD) signals of 68 healthy adult participants as they navigated a novel dynamically shifting problem-solving paradigm.\n\n'
-      'Our findings reveal a distributed network involving the lateral dorsolateral prefrontal cortex (dlPFC), and the anterior insula, which dynamically coordinate to resolve conflicts and update action-value representations. Furthermore, effective connectivity analyses suggest a hierarchical flow of information where the ACC signals the need for behavioral adjustment, while the dlPFC implements adaptive control. In line with reinforcement learning models, the resultant network demonstrates nuanced neural underpinnings for the human brain\'s capacity to maintain adaptive and goal-directed performance in complex environments.',
-);
 
 const trendPoints = [
   TrendPoint(2016, 38),
@@ -216,43 +173,6 @@ const topJournals = [
   JournalStat('Human Machine Intelligence', 4900, 0.39),
 ];
 
-const searchResults = [
-  Article(
-    type: 'ARTICLE',
-    topic: 'Human-Interaction',
-    year: '2022',
-    title:
-        'Neural Substrates of Cognitive Flexibility in Complex Decision-Making Environments',
-    authors: 'Dr. Lily Chen, Dr. Robert Johnson',
-    citations: 342,
-    doi: 'https://doi.org/10.1016/j.neuro.2022.08.014',
-    keywords: ['Cognitive Flexibility', 'fMRI'],
-    abstractText: '',
-  ),
-  Article(
-    type: 'REVIEW',
-    topic: 'Artificial Intelligence',
-    year: '2024',
-    title: 'Publication Trend Analysis for Generative AI Research',
-    authors: 'Prof. Anika Patel, Dr. Marco Silva',
-    citations: 288,
-    doi: 'https://doi.org/10.1145/ai-trends.2024',
-    keywords: ['Generative AI', 'Bibliometrics'],
-    abstractText: '',
-  ),
-  Article(
-    type: 'ARTICLE',
-    topic: 'Data Mining',
-    year: '2023',
-    title: 'Topic Evolution in Machine Learning Journals from 2016 to 2024',
-    authors: 'Dr. Samuel Park, Dr. Grace Rivera',
-    citations: 219,
-    doi: 'https://doi.org/10.1109/mltopics.2023',
-    keywords: ['Topic Modeling', 'Machine Learning'],
-    abstractText: '',
-  ),
-];
-
 class JournalShell extends StatefulWidget {
   const JournalShell({super.key});
 
@@ -261,24 +181,14 @@ class JournalShell extends StatefulWidget {
 }
 
 class _JournalShellState extends State<JournalShell> {
-  int _selectedIndex = 3;
+  int _selectedIndex = 0;
 
-  static const _pages = [
-    SearchScreen(),
-    DashboardScreen(),
-    TrendsScreen(),
-    DetailScreen(),
-  ];
+  static const _pages = [SearchScreen(), DashboardScreen(), TrendsScreen()];
 
   @override
   Widget build(BuildContext context) {
-    final isDetail = _selectedIndex == 3;
-
     return Scaffold(
-      appBar: JournalAppBar(
-        showBack: isDetail,
-        onBack: isDetail ? () => setState(() => _selectedIndex = 2) : null,
-      ),
+      appBar: JournalAppBar(showBack: false),
       body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: DecoratedBox(
         decoration: const BoxDecoration(
@@ -301,11 +211,6 @@ class _JournalShellState extends State<JournalShell> {
               icon: Icon(Icons.trending_up),
               label: 'Trends',
             ),
-            NavigationDestination(
-              icon: Icon(Icons.article_outlined),
-              selectedIcon: Icon(Icons.article),
-              label: 'Details',
-            ),
           ],
         ),
       ),
@@ -326,7 +231,7 @@ class JournalAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       automaticallyImplyLeading: false,
-      leadingWidth: showBack ? 42 : 14,
+      leadingWidth: showBack ? 42 : 0,
       leading: showBack
           ? IconButton(
               tooltip: 'Back',
@@ -334,14 +239,12 @@ class JournalAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: onBack,
             )
           : null,
-      titleSpacing: 0,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
+      titleSpacing: showBack ? 0 : 14,
+      title: const Row(
         children: [
-          if (!showBack)
-            const Icon(Icons.auto_stories, size: 18, color: AppColors.primary),
-          if (!showBack) const SizedBox(width: 6),
-          const Flexible(
+          Icon(Icons.auto_stories, size: 18, color: AppColors.primary),
+          SizedBox(width: 6),
+          Flexible(
             child: Text(
               'Journal Trend Analyzer',
               overflow: TextOverflow.ellipsis,
@@ -349,102 +252,10 @@ class JournalAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 14),
-          child: ProfileAvatar(showPhotoAccent: !showBack),
-        ),
-      ],
       bottom: const PreferredSize(
         preferredSize: Size.fromHeight(1),
         child: Divider(height: 1, color: AppColors.border),
       ),
-    );
-  }
-}
-
-class ProfileAvatar extends StatelessWidget {
-  const ProfileAvatar({super.key, this.showPhotoAccent = true});
-
-  final bool showPhotoAccent;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: showPhotoAccent
-              ? const LinearGradient(
-                  colors: [Color(0xFFEDF2F7), Color(0xFFFFE1C7)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: showPhotoAccent ? null : Colors.transparent,
-        ),
-        child: Icon(
-          showPhotoAccent ? Icons.person : Icons.more_vert,
-          color: showPhotoAccent ? AppColors.primary : AppColors.primary,
-          size: showPhotoAccent ? 19 : 22,
-        ),
-      ),
-    );
-  }
-}
-
-class SearchScreen extends StatelessWidget {
-  const SearchScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ScreenScroll(
-      children: [
-        const Text(
-          'Publication Search',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Explore AI and cognitive science publications.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-            boxShadow: cardShadow,
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.search, color: AppColors.secondary, size: 21),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Search by title, author, keyword',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              Icon(Icons.tune, color: AppColors.primary, size: 20),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        for (final article in searchResults) ...[
-          PublicationCard(article: article),
-          const SizedBox(height: 12),
-        ],
-      ],
     );
   }
 }
@@ -629,59 +440,6 @@ class TrendsScreen extends StatelessWidget {
   }
 }
 
-class DetailScreen extends StatelessWidget {
-  const DetailScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return ScreenScroll(
-      children: [
-        ArticleHeaderCard(article: featuredArticle),
-        const SizedBox(height: 14),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionTitle(icon: Icons.subject, title: 'Abstract'),
-              const SizedBox(height: 12),
-              Text(
-                featuredArticle.abstractText,
-                textAlign: TextAlign.justify,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Keywords',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final keyword in featuredArticle.keywords)
-                    TagChip(label: keyword),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class ScreenScroll extends StatelessWidget {
   const ScreenScroll({super.key, required this.children});
 
@@ -725,83 +483,6 @@ class SectionCard extends StatelessWidget {
   }
 }
 
-class ArticleHeaderCard extends StatelessWidget {
-  const ArticleHeaderCard({super.key, required this.article});
-
-  final Article article;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CategoryChip(label: article.type),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${article.topic} - ${article.year}',
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          Text(article.title, style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  article.authors,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_down,
-                color: AppColors.secondary,
-                size: 20,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          MetricPill(
-            label: '${article.citations} Citations',
-            icon: Icons.format_quote,
-            fillWidth: true,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: FilledButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('DOI: ${article.doi}')));
-              },
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text('Open DOI Link'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class SectionTitle extends StatelessWidget {
   const SectionTitle({super.key, required this.icon, required this.title});
 
@@ -823,63 +504,6 @@ class SectionTitle extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class PublicationCard extends StatelessWidget {
-  const PublicationCard({super.key, required this.article});
-
-  final Article article;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CategoryChip(label: article.type),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${article.topic} - ${article.year}',
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          Text(
-            article.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            article.authors,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.secondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: MetricPill(
-              label: '${article.citations} citations',
-              icon: Icons.local_fire_department,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -921,34 +545,6 @@ class StatCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class CategoryChip extends StatelessWidget {
-  const CategoryChip({super.key, required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.secondary.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: AppColors.secondary,
-          fontSize: 10,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0,
-        ),
       ),
     );
   }
