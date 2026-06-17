@@ -7,6 +7,8 @@ import 'core/theme/app_theme.dart';
 import 'models/author_model.dart';
 import 'models/journal_model.dart';
 import 'providers/search_provider.dart';
+import 'screens/journal_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/search_screen.dart';
 import 'services/publication_analytics.dart';
 import 'widgets/app_widgets.dart';
@@ -110,7 +112,12 @@ class JournalShell extends StatefulWidget {
 class _JournalShellState extends State<JournalShell> {
   int _selectedIndex = 0;
 
-  static const _pages = [SearchScreen(), DashboardScreen(), TrendsScreen()];
+  static const _pages = [
+    SearchScreen(),
+    JournalScreen(),
+    TrendsScreen(),
+    ProfileScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -137,16 +144,25 @@ class _JournalShellState extends State<JournalShell> {
               setState(() => _selectedIndex = index);
             },
             destinations: const [
-              NavigationDestination(icon: Icon(Icons.search), label: 'Search'),
               NavigationDestination(
-                icon: Icon(Icons.dashboard_outlined),
-                selectedIcon: Icon(Icons.dashboard),
-                label: 'Dashboard',
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
               ),
               NavigationDestination(
-                icon: Icon(Icons.show_chart_outlined),
-                selectedIcon: Icon(Icons.show_chart),
-                label: 'Trends',
+                icon: Icon(Icons.library_books_outlined),
+                selectedIcon: Icon(Icons.library_books),
+                label: 'Journal',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.tag_outlined),
+                selectedIcon: Icon(Icons.tag),
+                label: 'Keywords',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: 'Profile',
               ),
             ],
           ),

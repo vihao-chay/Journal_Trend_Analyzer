@@ -144,18 +144,58 @@ class ApiService {
 
     return results
         .map((item) {
+          final id = _asNonEmptyString(item['id']);
           final displayName = _asNonEmptyString(item['display_name']);
-          if (displayName == null) {
+          if (displayName == null || id == null) {
             return null;
           }
 
           return <String, dynamic>{
+            'id': id,
             'display_name': displayName,
             'works_count': _asInt(item['works_count']),
           };
         })
         .whereType<Map<String, dynamic>>()
         .toList(growable: false);
+  }
+
+  Future<List<PublicationModel>> fetchWorksBySourceId(String sourceId) async {
+    final filterId = _normalizeOpenAlexId(sourceId);
+    if (filterId == null) {
+      return const [];
+    }
+    final uri = _buildUri('/works', {
+      'filter': 'primary_location.source.id:$filterId',
+      'per_page': '50',
+    });
+    final payload = await _getJson(uri);
+    final results = _asJsonList(payload['results']);
+    return results.map(PublicationModel.fromJson).toList(growable: false);
+  }
+
+  Future<List<PublicationModel>> fetchWorksByAuthorId(String authorId) async {
+    final filterId = _normalizeOpenAlexId(authorId);
+    if (filterId == null) {
+      return const [];
+    }
+    final uri = _buildUri('/works', {
+      'filter': 'authorships.author.id:$filterId',
+      'per_page': '50',
+    });
+    final payload = await _getJson(uri);
+    final results = _asJsonList(payload['results']);
+    return results.map(PublicationModel.fromJson).toList(growable: false);
+  }
+
+  static String? _normalizeOpenAlexId(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return trimmed;
+    final segments = uri.pathSegments;
+    if (segments.isEmpty) return trimmed;
+    return segments.last; // ex: W..., S..., A...
   }
 
   void dispose() {
