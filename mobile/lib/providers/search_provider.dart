@@ -1,8 +1,7 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/analytics_models.dart';
 import '../models/author_model.dart';
 import '../models/global_overview.dart';
 import '../models/journal_model.dart';
@@ -11,10 +10,8 @@ import '../services/api_service.dart';
 import '../services/publication_analytics.dart';
 
 class SearchProvider extends ChangeNotifier {
-  SearchProvider({
-    ApiService? apiService,
-    bool autoLoadGlobalOverview = true,
-  }) : _apiService = apiService ?? ApiService() {
+  SearchProvider({ApiService? apiService, bool autoLoadGlobalOverview = true})
+    : _apiService = apiService ?? ApiService() {
     if (autoLoadGlobalOverview) {
       loadRecentSearches();
       loadGlobalOverview();
@@ -25,6 +22,8 @@ class SearchProvider extends ChangeNotifier {
 
   static const _recentSearchesKey = 'recent_searches_v1';
 
+  ResearchFilters filters = ResearchFilters.empty;
+
   GlobalOverview? globalOverview;
   bool isGlobalLoading = false;
   String? globalError;
@@ -32,8 +31,12 @@ class SearchProvider extends ChangeNotifier {
   String? keyword;
   List<PublicationModel> publications = const [];
   Map<String, int> publicationTrend = const {};
+  Map<String, int> citationVelocity = const {};
   List<JournalModel> topJournals = const [];
   List<AuthorModel> topAuthors = const [];
+  List<InstitutionModel> topInstitutions = const [];
+  List<CountryOutput> countryOutputs = const [];
+  List<KeywordMetric> keywordFrontiers = const [];
 
   bool isSearchLoading = false;
   String? searchError;
@@ -64,6 +67,22 @@ class SearchProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
+  Future<void> updateFilters(
+    ResearchFilters next, {
+    bool rerunSearch = false,
+  }) async {
+    filters = next;
+    notifyListeners();
+
+    if (rerunSearch && keyword != null && keyword!.trim().isNotEmpty) {
+      await search(keyword!);
+    }
+  }
+
+  Future<void> resetFilters({bool rerunSearch = false}) {
+    return updateFilters(ResearchFilters.empty, rerunSearch: rerunSearch);
+  }
+
   Future<void> loadGlobalOverview() async {
     isGlobalLoading = true;
     globalError = null;
@@ -75,9 +94,14 @@ class SearchProvider extends ChangeNotifier {
         _apiService.fetchEntityCount('/authors'),
         _apiService.fetchEntityCount('/sources'),
         _apiService.fetchGlobalPublicationTrend(),
-        _apiService.fetchGlobalTopElements('journals'),
-        _apiService.fetchGlobalTopElements('authors'),
+        _apiService.fetchCitationVelocity(''),
+        _apiService.fetchTopJournals(),
+        _apiService.fetchTopAuthors(),
         _apiService.fetchMostCitedWork(),
+        _apiService.fetchTopInstitutions(),
+        _apiService.fetchCountryOutputs(),
+        _apiService.fetchTrendingKeywords(),
+        _apiService.fetchFeaturedPublications(),
       ]);
 
       globalOverview = GlobalOverview.fromApiResults(
@@ -85,13 +109,14 @@ class SearchProvider extends ChangeNotifier {
         totalAuthors: results[1] as int,
         totalSources: results[2] as int,
         publicationTrend: results[3] as Map<String, int>,
-        topJournals: (results[4] as List<Map<String, dynamic>>)
-            .map(JournalModel.fromMap)
-            .toList(growable: false),
-        topAuthors: (results[5] as List<Map<String, dynamic>>)
-            .map(AuthorModel.fromMap)
-            .toList(growable: false),
-        mostCitedWork: results[6] as PublicationModel?,
+        citationVelocity: results[4] as Map<String, int>,
+        topJournals: results[5] as List<JournalModel>,
+        topAuthors: results[6] as List<AuthorModel>,
+        mostCitedWork: results[7] as PublicationModel?,
+        topInstitutions: results[8] as List<InstitutionModel>,
+        countryOutputs: results[9] as List<CountryOutput>,
+        trendingKeywords: results[10] as List<KeywordMetric>,
+        featuredPublications: results[11] as List<PublicationModel>,
       );
       globalError = null;
     } on ApiException catch (exception) {
@@ -99,7 +124,7 @@ class SearchProvider extends ChangeNotifier {
       globalError = exception.message;
     } catch (_) {
       globalOverview = null;
-      globalError = 'Unable to load OpenAlex overview. Please try again.';
+      globalError = 'Không thể tải tổng quan OpenAlex. Vui lòng thử lại.';
     } finally {
       isGlobalLoading = false;
       notifyListeners();
@@ -120,20 +145,24 @@ class SearchProvider extends ChangeNotifier {
 
     try {
       final results = await Future.wait<dynamic>([
-        _apiService.searchPublications(trimmed),
-        _apiService.fetchPublicationTrend(trimmed),
-        _apiService.fetchTopElements(trimmed, 'journals'),
-        _apiService.fetchTopElements(trimmed, 'authors'),
+        _apiService.searchPublications(trimmed, filters: filters),
+        _apiService.fetchPublicationTrend(trimmed, filters: filters),
+        _apiService.fetchCitationVelocity(trimmed, filters: filters),
+        _apiService.fetchTopJournals(query: trimmed, filters: filters),
+        _apiService.fetchTopAuthors(query: trimmed, filters: filters),
+        _apiService.fetchTopInstitutions(query: trimmed, filters: filters),
+        _apiService.fetchCountryOutputs(query: trimmed, filters: filters),
+        _apiService.fetchResearchFrontiers(trimmed, filters: filters),
       ]);
 
       publications = results[0] as List<PublicationModel>;
       publicationTrend = results[1] as Map<String, int>;
-      topJournals = (results[2] as List<Map<String, dynamic>>)
-          .map(JournalModel.fromMap)
-          .toList(growable: false);
-      topAuthors = (results[3] as List<Map<String, dynamic>>)
-          .map(AuthorModel.fromMap)
-          .toList(growable: false);
+      citationVelocity = results[2] as Map<String, int>;
+      topJournals = results[3] as List<JournalModel>;
+      topAuthors = results[4] as List<AuthorModel>;
+      topInstitutions = results[5] as List<InstitutionModel>;
+      countryOutputs = results[6] as List<CountryOutput>;
+      keywordFrontiers = results[7] as List<KeywordMetric>;
       searchError = null;
 
       await _recordRecentSearch(trimmed);
@@ -142,7 +171,7 @@ class SearchProvider extends ChangeNotifier {
       searchError = exception.message;
     } catch (_) {
       _resetSearchResults();
-      searchError = 'Unable to load publications. Please try again.';
+      searchError = 'Không thể tải dữ liệu nghiên cứu. Vui lòng thử lại.';
     } finally {
       isSearchLoading = false;
       notifyListeners();
@@ -175,8 +204,12 @@ class SearchProvider extends ChangeNotifier {
   void _resetSearchResults() {
     publications = const [];
     publicationTrend = const {};
+    citationVelocity = const {};
     topJournals = const [];
     topAuthors = const [];
+    topInstitutions = const [];
+    countryOutputs = const [];
+    keywordFrontiers = const [];
   }
 
   @override

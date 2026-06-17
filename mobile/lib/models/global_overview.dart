@@ -1,4 +1,5 @@
 import 'author_model.dart';
+import 'analytics_models.dart';
 import 'journal_model.dart';
 import 'publication_model.dart';
 
@@ -9,8 +10,13 @@ class GlobalOverview {
     required this.totalAuthors,
     required this.totalSources,
     required this.publicationTrend,
+    required this.citationVelocity,
     required this.topJournals,
     required this.topAuthors,
+    required this.topInstitutions,
+    required this.countryOutputs,
+    required this.trendingKeywords,
+    required this.featuredPublications,
     this.mostCitedWork,
     this.peakYear,
     this.peakYearCount = 0,
@@ -20,8 +26,13 @@ class GlobalOverview {
   final int totalAuthors;
   final int totalSources;
   final Map<String, int> publicationTrend;
+  final Map<String, int> citationVelocity;
   final List<JournalModel> topJournals;
   final List<AuthorModel> topAuthors;
+  final List<InstitutionModel> topInstitutions;
+  final List<CountryOutput> countryOutputs;
+  final List<KeywordMetric> trendingKeywords;
+  final List<PublicationModel> featuredPublications;
   final PublicationModel? mostCitedWork;
   final int? peakYear;
   final int peakYearCount;
@@ -31,8 +42,13 @@ class GlobalOverview {
     required int totalAuthors,
     required int totalSources,
     required Map<String, int> publicationTrend,
+    required Map<String, int> citationVelocity,
     required List<JournalModel> topJournals,
     required List<AuthorModel> topAuthors,
+    required List<InstitutionModel> topInstitutions,
+    required List<CountryOutput> countryOutputs,
+    required List<KeywordMetric> trendingKeywords,
+    required List<PublicationModel> featuredPublications,
     required PublicationModel? mostCitedWork,
   }) {
     if (totalWorks <= 0) {
@@ -57,8 +73,13 @@ class GlobalOverview {
       totalAuthors: totalAuthors,
       totalSources: totalSources,
       publicationTrend: publicationTrend,
+      citationVelocity: citationVelocity,
       topJournals: topJournals,
       topAuthors: topAuthors,
+      topInstitutions: topInstitutions,
+      countryOutputs: countryOutputs,
+      trendingKeywords: trendingKeywords,
+      featuredPublications: featuredPublications,
       mostCitedWork: mostCitedWork,
       peakYear: peakYear,
       peakYearCount: peakYearCount,

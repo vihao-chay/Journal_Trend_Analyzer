@@ -77,13 +77,13 @@ class AppTheme {
           fontSize: 22,
           fontWeight: FontWeight.w800,
           height: 1.15,
-          letterSpacing: -0.3,
+          letterSpacing: 0,
         ),
         titleLarge: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 18,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.2,
+          letterSpacing: 0,
         ),
         titleMedium: TextStyle(
           color: AppColors.textPrimary,
@@ -122,7 +122,7 @@ class AppTheme {
           color: Colors.white,
           fontSize: 17,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.2,
+          letterSpacing: 0,
         ),
       ),
       cardTheme: CardThemeData(
@@ -168,7 +168,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadius.medium),
           borderSide: const BorderSide(color: AppColors.secondary, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
