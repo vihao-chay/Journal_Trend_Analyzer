@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,7 +8,6 @@ import '../models/publication_model.dart';
 import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
 import '../widgets/app_widgets.dart';
-import 'detail_screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,11 +27,9 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   final TextEditingController _searchController = TextEditingController();
-  Timer? _debounce;
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -47,20 +42,45 @@ class _HomeScreenState extends State<HomeScreen> {
     context.read<SearchProvider>().search(keyword);
   }
 
-  void _scheduleSearch(String value) {
-    _debounce?.cancel();
-    final keyword = value.trim();
-    if (keyword.length < 3) return;
-    _debounce = Timer(const Duration(milliseconds: 520), () {
-      if (!mounted) return;
-      context.read<SearchProvider>().search(keyword);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<SearchProvider>();
-    final overview = provider.globalOverview;
+    final overview = context.select<SearchProvider, GlobalOverview?>(
+      (provider) => provider.globalOverview,
+    );
+    final recentSearches = context.select<SearchProvider, List<String>>(
+      (provider) => provider.recentSearches,
+    );
+    final filters = context.select<SearchProvider, ResearchFilters>(
+      (provider) => provider.filters,
+    );
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
+    final isGlobalLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isGlobalLoading,
+    );
+    final globalError = context.select<SearchProvider, String?>(
+      (provider) => provider.globalError,
+    );
+    final isSearchLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isSearchLoading,
+    );
+    final searchError = context.select<SearchProvider, String?>(
+      (provider) => provider.searchError,
+    );
+    final keyword = context.select<SearchProvider, String?>(
+      (provider) => provider.keyword,
+    );
+    final publications = context.select<SearchProvider, List<PublicationModel>>(
+      (provider) => provider.publications,
+    );
+    final countryOutputs = context.select<SearchProvider, List<CountryOutput>>(
+      (provider) => provider.countryOutputs,
+    );
+    final searchStats = context.select<SearchProvider, DashboardStats>(
+      (provider) => provider.searchDashboardStats,
+    );
+
     final apiTopics =
         overview?.trendingKeywords
             .map((keyword) => keyword.displayName)
@@ -69,18 +89,6 @@ class _HomeScreenState extends State<HomeScreen> {
             .toList(growable: false) ??
         const <String>[];
     final suggestedTopics = apiTopics.isEmpty ? _fallbackTopics : apiTopics;
-    final hasSearchResults =
-        provider.hasSearched && provider.publications.isNotEmpty;
-    final displayedPublications = hasSearchResults
-        ? provider.publications.take(5).toList(growable: false)
-        : (overview?.featuredPublications.take(5).toList(growable: false) ??
-              const <PublicationModel>[]);
-    final loadedPublicationCount = hasSearchResults
-        ? provider.publications.length
-        : displayedPublications.length;
-    final publicationPreviewTitle = hasSearchResults
-        ? 'Bài báo theo tìm kiếm (${displayedPublications.length}/$loadedPublicationCount đang hiển thị)'
-        : 'Bài báo nổi bật';
 
     return ScreenScroll(
       onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
@@ -94,14 +102,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ResearchSearchBar(
           controller: _searchController,
           onSubmitted: _submitSearch,
-          onChanged: _scheduleSearch,
           onSearchPressed: () => _submitSearch(),
         ),
         const SizedBox(height: 12),
         _TopicChips(
           title: 'Tìm kiếm gần đây',
           icon: Icons.history,
-          topics: provider.recentSearches,
+          topics: recentSearches,
           onSelected: _submitSearch,
           emptyText: 'Chưa có lịch sử tìm kiếm',
         ),
@@ -114,33 +121,36 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: AppSpacing.medium),
         _YearFilterCard(
-          filters: provider.filters,
+          filters: filters,
           onApply: (fromYear, toYear) =>
               context.read<SearchProvider>().updateFilters(
                 ResearchFilters(fromYear: fromYear, toYear: toYear),
-                rerunSearch: provider.hasSearched,
+                rerunSearch: hasSearched,
               ),
           onReset: () => context.read<SearchProvider>().resetFilters(
-            rerunSearch: provider.hasSearched,
+            rerunSearch: hasSearched,
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
         _OverviewMetrics(
           overview: overview,
-          isLoading: provider.isGlobalLoading,
-          error: provider.globalError,
-          searchStats: provider.searchDashboardStats,
-          hasSearched: provider.hasSearched,
+          isLoading: isGlobalLoading,
+          error: globalError,
+          searchStats: searchStats,
+          hasSearched: hasSearched,
         ),
-        if (provider.hasSearched) ...[
+        if (hasSearched) ...[
           const SizedBox(height: AppSpacing.medium),
           _SearchStateCard(
-            keyword: provider.keyword,
-            isLoading: provider.isSearchLoading,
-            error: provider.searchError,
-            stats: provider.searchDashboardStats,
-            visiblePublicationCount: displayedPublications.length,
-            loadedPublicationCount: provider.publications.length,
+            keyword: keyword,
+            isLoading: isSearchLoading,
+            error: searchError,
+            stats: searchStats,
+            loadedPublicationCount: context.select<SearchProvider, int>(
+              (provider) => provider.publicationTotalCount > 0
+                  ? provider.publicationTotalCount
+                  : publications.length,
+            ),
           ),
         ],
         const SizedBox(height: AppSpacing.medium),
@@ -154,20 +164,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 14),
               MapChart(
-                countries: provider.hasSearched
-                    ? provider.countryOutputs
+                countries: hasSearched
+                    ? countryOutputs
                     : overview?.countryOutputs ?? const [],
               ),
             ],
           ),
         ),
-        if (displayedPublications.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.medium),
-          _PublicationPreview(
-            title: publicationPreviewTitle,
-            publications: displayedPublications,
-          ),
-        ],
       ],
     );
   }
@@ -379,19 +382,19 @@ class _OverviewMetrics extends StatelessWidget {
     final cards = [
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalWorks),
-        'Works',
+        'Công trình',
         Icons.article_outlined,
         AppColors.secondary,
       ),
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalAuthors),
-        'Authors',
+        'Tác giả',
         Icons.groups_outlined,
         AppColors.chartLine,
       ),
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalSources),
-        'Journals',
+        'Tạp chí',
         Icons.library_books_outlined,
         AppColors.accent,
       ),
@@ -478,7 +481,6 @@ class _SearchStateCard extends StatelessWidget {
     required this.isLoading,
     required this.error,
     required this.stats,
-    required this.visiblePublicationCount,
     required this.loadedPublicationCount,
   });
 
@@ -486,7 +488,6 @@ class _SearchStateCard extends StatelessWidget {
   final bool isLoading;
   final String? error;
   final DashboardStats stats;
-  final int visiblePublicationCount;
   final int loadedPublicationCount;
 
   @override
@@ -518,16 +519,10 @@ class _SearchStateCard extends StatelessWidget {
               children: [
                 MetricPill(
                   label:
-                      '${formatCompactNumber(visiblePublicationCount)} bài đang hiển thị',
-                  icon: Icons.article_outlined,
+                      '${formatCompactNumber(loadedPublicationCount)} bài đã tải',
+                  icon: Icons.cloud_done_outlined,
+                  accentColor: AppColors.secondary,
                 ),
-                if (loadedPublicationCount > visiblePublicationCount)
-                  MetricPill(
-                    label:
-                        '${formatCompactNumber(loadedPublicationCount)} bài đã tải',
-                    icon: Icons.cloud_done_outlined,
-                    accentColor: AppColors.secondary,
-                  ),
                 MetricPill(
                   label:
                       '${formatCompactNumber(stats.totalCitations)} trích dẫn',
@@ -543,38 +538,6 @@ class _SearchStateCard extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _PublicationPreview extends StatelessWidget {
-  const _PublicationPreview({required this.title, required this.publications});
-
-  final String title;
-  final List<PublicationModel> publications;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionTitle(icon: Icons.article_outlined, title: title),
-        const SizedBox(height: 14),
-        for (final publication in publications) ...[
-          PaperCard(
-            publication: publication,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) =>
-                      PublicationDetailScreen(publication: publication),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-      ],
     );
   }
 }

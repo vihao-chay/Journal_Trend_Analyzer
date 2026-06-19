@@ -19,6 +19,19 @@ class PublicationModel {
   final List<String> authors;
   final String? abstractText;
 
+  /// Human-readable year label; invalid or missing years show [unknownYearLabel].
+  String get displayYear =>
+      isPlausiblePublicationYear(publicationYear)
+          ? publicationYear.toString()
+          : unknownYearLabel;
+
+  static const unknownYearLabel = 'Chưa rõ';
+
+  static bool isPlausiblePublicationYear(int year) {
+    final currentYear = DateTime.now().year;
+    return year >= 1800 && year <= currentYear;
+  }
+
   factory PublicationModel.fromJson(Map<String, dynamic> json) {
     return PublicationModel(
       id: _asNonEmptyString(json['id']) ?? '',
@@ -26,7 +39,7 @@ class PublicationModel {
           _asNonEmptyString(json['title']) ??
           _asNonEmptyString(json['display_name']) ??
           'Untitled Publication',
-      publicationYear: _asInt(json['publication_year']),
+      publicationYear: _resolvePublicationYear(json),
       citedByCount: _asInt(json['cited_by_count']),
       doi: _asNonEmptyString(json['doi']),
       journalName: _extractJournalName(json),
@@ -152,6 +165,39 @@ class PublicationModel {
 
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static int _resolvePublicationYear(Map<String, dynamic> json) {
+    final rawYear = _asNullableInt(json['publication_year']);
+    if (rawYear != null && isPlausiblePublicationYear(rawYear)) {
+      return rawYear;
+    }
+
+    final publicationDate = _asNonEmptyString(json['publication_date']);
+    if (publicationDate != null && publicationDate.length >= 4) {
+      final parsedYear = int.tryParse(publicationDate.substring(0, 4));
+      if (parsedYear != null && isPlausiblePublicationYear(parsedYear)) {
+        return parsedYear;
+      }
+    }
+
+    return 0;
+  }
+
+  static int? _asNullableInt(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
   }
 
   static int _asInt(Object? value) {

@@ -44,7 +44,7 @@ class PublicationDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authors = publication.authors.isEmpty
-        ? 'Unknown authors'
+        ? 'Tác giả không xác định'
         : publication.authors.join(', ');
 
     return Scaffold(
@@ -68,7 +68,7 @@ class PublicationDetailScreen extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    CategoryChip(label: publication.publicationYear.toString()),
+                    CategoryChip(label: publication.displayYear),
                     MetricPill(
                       label:
                           '${formatDisplayNumber(publication.citedByCount)} trích dẫn',
@@ -183,7 +183,7 @@ class _JournalDetailScreenState extends State<JournalDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const GradientAppBar(showBack: true, title: 'Chi tiết journal'),
+      appBar: const GradientAppBar(showBack: true, title: 'Chi tiết tạp chí'),
       body: ScreenScroll(
         children: [
           SectionCard(
@@ -193,7 +193,7 @@ class _JournalDetailScreenState extends State<JournalDetailScreen> {
               children: [
                 const SectionTitle(
                   icon: Icons.menu_book_outlined,
-                  title: 'Hồ sơ journal',
+                  title: 'Hồ sơ tạp chí',
                 ),
                 const SizedBox(height: 14),
                 Text(

@@ -6,6 +6,7 @@ import '../models/author_model.dart';
 import '../models/global_overview.dart';
 import '../models/journal_model.dart';
 import '../models/publication_model.dart';
+import '../models/publication_page_result.dart';
 import '../services/api_service.dart';
 import '../services/publication_analytics.dart';
 
@@ -21,6 +22,8 @@ class SearchProvider extends ChangeNotifier {
   final ApiService _apiService;
 
   static const _recentSearchesKey = 'recent_searches_v1';
+  int _searchGeneration = 0;
+  int _journalLoadGeneration = 0;
 
   ResearchFilters filters = ResearchFilters.empty;
 
@@ -30,6 +33,11 @@ class SearchProvider extends ChangeNotifier {
 
   String? keyword;
   List<PublicationModel> publications = const [];
+  int publicationTotalCount = 0;
+  List<PublicationModel> journalPagePublications = const [];
+  int journalPublicationPage = 1;
+  bool isJournalPublicationsLoading = false;
+  String? journalPublicationsError;
   Map<String, int> publicationTrend = const {};
   Map<String, int> citationVelocity = const {};
   List<JournalModel> topJournals = const [];
@@ -46,6 +54,60 @@ class SearchProvider extends ChangeNotifier {
 
   DashboardStats get searchDashboardStats =>
       DashboardStats.fromPublications(publications);
+
+  int get journalPublicationTotalPages {
+    if (publicationTotalCount <= 0) {
+      return 0;
+    }
+    return (publicationTotalCount + ApiService.defaultPublicationPageSize - 1) ~/
+        ApiService.defaultPublicationPageSize;
+  }
+
+  Future<void> loadJournalPublications({required int page}) async {
+    final targetPage = page.clamp(1, 9999);
+    final generation = ++_journalLoadGeneration;
+    isJournalPublicationsLoading = true;
+    journalPublicationsError = null;
+    notifyListeners();
+
+    try {
+      final result = await _apiService.fetchPublicationsPage(
+        query: hasSearched ? keyword : null,
+        filters: hasSearched ? filters : ResearchFilters.empty,
+        page: targetPage,
+      );
+
+      if (generation != _journalLoadGeneration) {
+        return;
+      }
+
+      journalPublicationPage = targetPage;
+      publicationTotalCount = result.totalCount;
+      journalPagePublications = sortPublicationsByYearDesc(result.publications);
+      if (targetPage == 1 && hasSearched) {
+        publications = result.publications;
+      }
+      journalPublicationsError = null;
+    } on ApiException catch (exception) {
+      if (generation != _journalLoadGeneration) {
+        return;
+      }
+      journalPagePublications = const [];
+      journalPublicationsError = exception.message;
+    } catch (_) {
+      if (generation != _journalLoadGeneration) {
+        return;
+      }
+      journalPagePublications = const [];
+      journalPublicationsError =
+          'Không thể tải danh sách bài báo. Vui lòng thử lại.';
+    } finally {
+      if (generation == _journalLoadGeneration) {
+        isJournalPublicationsLoading = false;
+        notifyListeners();
+      }
+    }
+  }
 
   Future<void> loadRecentSearches() async {
     try {
@@ -137,15 +199,23 @@ class SearchProvider extends ChangeNotifier {
       return;
     }
 
+    final generation = ++_searchGeneration;
     keyword = trimmed;
     isSearchLoading = true;
     searchError = null;
     hasSearched = true;
+    journalPublicationPage = 1;
+    journalPagePublications = const [];
+    publicationTotalCount = 0;
     notifyListeners();
 
     try {
       final results = await Future.wait<dynamic>([
-        _apiService.searchPublications(trimmed, filters: filters),
+        _apiService.fetchPublicationsPage(
+          query: trimmed,
+          filters: filters,
+          page: 1,
+        ),
         _apiService.fetchPublicationTrend(trimmed, filters: filters),
         _apiService.fetchCitationVelocity(trimmed, filters: filters),
         _apiService.fetchTopJournals(query: trimmed, filters: filters),
@@ -155,7 +225,17 @@ class SearchProvider extends ChangeNotifier {
         _apiService.fetchResearchFrontiers(trimmed, filters: filters),
       ]);
 
-      publications = results[0] as List<PublicationModel>;
+      if (generation != _searchGeneration) {
+        return;
+      }
+
+      final publicationPage = results[0] as PublicationPageResult;
+      publications = publicationPage.publications;
+      publicationTotalCount = publicationPage.totalCount;
+      journalPublicationPage = 1;
+      journalPagePublications = sortPublicationsByYearDesc(
+        publicationPage.publications,
+      );
       publicationTrend = results[1] as Map<String, int>;
       citationVelocity = results[2] as Map<String, int>;
       topJournals = results[3] as List<JournalModel>;
@@ -167,14 +247,22 @@ class SearchProvider extends ChangeNotifier {
 
       await _recordRecentSearch(trimmed);
     } on ApiException catch (exception) {
+      if (generation != _searchGeneration) {
+        return;
+      }
       _resetSearchResults();
       searchError = exception.message;
     } catch (_) {
+      if (generation != _searchGeneration) {
+        return;
+      }
       _resetSearchResults();
       searchError = 'Không thể tải dữ liệu nghiên cứu. Vui lòng thử lại.';
     } finally {
-      isSearchLoading = false;
-      notifyListeners();
+      if (generation == _searchGeneration) {
+        isSearchLoading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -203,6 +291,10 @@ class SearchProvider extends ChangeNotifier {
 
   void _resetSearchResults() {
     publications = const [];
+    publicationTotalCount = 0;
+    journalPagePublications = const [];
+    journalPublicationPage = 1;
+    journalPublicationsError = null;
     publicationTrend = const {};
     citationVelocity = const {};
     topJournals = const [];

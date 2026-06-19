@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => searchProvider ?? SearchProvider(),
       child: MaterialApp(
-        title: 'OpenAlex Research Analytics',
+        title: 'Phân tích xu hướng học thuật',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const ResearchAnalyticsShell(),
@@ -51,22 +51,22 @@ class _ResearchAnalyticsShellState extends State<ResearchAnalyticsShell> {
 
   static const _items = [
     _NavigationItem(
-      label: 'Home',
+      label: 'Trang chủ',
       icon: Icons.home_outlined,
       selectedIcon: Icons.home,
     ),
     _NavigationItem(
-      label: 'Journal',
+      label: 'Tạp chí',
       icon: Icons.library_books_outlined,
       selectedIcon: Icons.library_books,
     ),
     _NavigationItem(
-      label: 'Keywords',
+      label: 'Từ khóa',
       icon: Icons.tag_outlined,
       selectedIcon: Icons.tag,
     ),
     _NavigationItem(
-      label: 'Profile',
+      label: 'Hồ sơ',
       icon: Icons.person_outline,
       selectedIcon: Icons.person,
     ),

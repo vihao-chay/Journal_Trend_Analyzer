@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_theme.dart';
@@ -10,6 +11,7 @@ import '../models/analytics_models.dart';
 import '../models/author_model.dart';
 import '../models/journal_model.dart';
 import '../models/publication_model.dart';
+import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
 
 class AppShimmer extends StatefulWidget {
@@ -637,7 +639,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     this.showBack = false,
     this.onBack,
-    this.title = 'OpenAlex Research Analytics',
+    this.title = 'Phân tích nghiên cứu OpenAlex',
   });
 
   final bool showBack;
@@ -690,6 +692,55 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class SearchContextBanner extends StatelessWidget {
+  const SearchContextBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
+    final keyword = context.select<SearchProvider, String?>(
+      (provider) => provider.keyword,
+    );
+    final isLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isSearchLoading,
+    );
+
+    return SectionCard(
+      padding: const EdgeInsets.all(12),
+      accentColor: hasSearched ? AppColors.chartLine : AppColors.secondary,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            hasSearched ? Icons.filter_alt_outlined : Icons.public,
+            color: AppColors.secondary,
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              hasSearched && keyword != null
+                  ? 'Đang xem kết quả cho: "$keyword"'
+                  : 'Đang xem dữ liệu toàn cục OpenAlex. Tìm chủ đề ở Trang chủ để lọc kết quả.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          if (isLoading && hasSearched) ...[
+            const SizedBox(width: 10),
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ],
         ],
       ),
     );
@@ -785,7 +836,7 @@ class PaperCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authors = publication.authors.isEmpty
-        ? 'Unknown authors'
+        ? 'Tác giả không xác định'
         : publication.authors.take(3).join(', ');
 
     return Material(
@@ -825,11 +876,11 @@ class PaperCard extends StatelessWidget {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           CategoryChip(
-                            label: publication.publicationYear.toString(),
+                            label: publication.displayYear,
                           ),
                           MetricPill(
                             label:
-                                '${formatCompactNumber(publication.citedByCount)} citations',
+                                '${formatCompactNumber(publication.citedByCount)} trích dẫn',
                             icon: Icons.format_quote,
                             accentColor: AppColors.accent,
                           ),
@@ -1154,27 +1205,27 @@ class _FilterPanelState extends State<FilterPanel> {
                 ),
                 _FilterTextField(
                   controller: _fieldController,
-                  label: 'Field',
+                  label: 'Lĩnh vực',
                   hint: 'Computer Science hoặc fields/17',
                 ),
                 _FilterTextField(
                   controller: _subfieldController,
-                  label: 'Subfield',
+                  label: 'Tiểu lĩnh vực',
                   hint: 'Artificial Intelligence hoặc subfields/1702',
                 ),
                 _FilterTextField(
                   controller: _topicController,
-                  label: 'Topic',
+                  label: 'Chủ đề',
                   hint: 'Graphene hoặc T10083',
                 ),
                 _FilterTextField(
                   controller: _journalController,
-                  label: 'Journal',
+                  label: 'Tạp chí',
                   hint: 'Nature hoặc S137773608',
                 ),
                 _FilterTextField(
                   controller: _countryController,
-                  label: 'Country',
+                  label: 'Quốc gia',
                   hint: 'US, CN, GB, JP, VN...',
                   trailing: Wrap(
                     spacing: 6,
@@ -1461,7 +1512,7 @@ class _HorizontalBarChartPainter extends CustomPainter {
       );
     }
 
-    _drawVerticalText(canvas, 'Journal', Offset(10, plotTop + plotHeight / 2));
+    _drawVerticalText(canvas, 'Số bài', Offset(10, plotTop + plotHeight / 2));
     _drawText(
       canvas,
       _capitalizeAxisLabel(valueSuffix),
@@ -1620,7 +1671,7 @@ class TrendChart extends StatelessWidget {
     if (displayed.isEmpty) {
       return const AppEmptyState(
         icon: Icons.show_chart,
-        title: 'Chưa có trend',
+        title: 'Chưa có xu hướng',
         message: 'OpenAlex chưa trả về dữ liệu theo năm cho truy vấn này.',
       );
     }
@@ -1657,7 +1708,7 @@ class LineChart extends StatelessWidget {
     super.key,
     required this.series,
     this.xAxisLabel = 'Năm',
-    this.yAxisLabel = 'Citation',
+    this.yAxisLabel = 'Trích dẫn',
     this.maxPoints = 18,
   });
 
@@ -1676,9 +1727,9 @@ class LineChart extends StatelessWidget {
     if (displayed.isEmpty) {
       return const AppEmptyState(
         icon: Icons.show_chart,
-        title: 'Chưa có citation velocity',
+        title: 'Chưa có tốc độ trích dẫn',
         message:
-            'OpenAlex chưa trả về dữ liệu citation theo năm cho chủ đề này.',
+            'OpenAlex chưa trả về dữ liệu trích dẫn theo năm cho chủ đề này.',
       );
     }
 
@@ -2561,7 +2612,7 @@ class BubbleChart extends StatelessWidget {
     if (bubbles.isEmpty) {
       return const AppEmptyState(
         icon: Icons.bubble_chart,
-        title: 'Chưa có frontier',
+        title: 'Chưa có biên giới nghiên cứu',
         message: 'Các cụm keyword nổi bật sẽ xuất hiện tại đây.',
       );
     }
