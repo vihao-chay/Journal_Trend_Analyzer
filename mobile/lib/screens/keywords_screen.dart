@@ -9,78 +9,57 @@ import '../providers/search_provider.dart';
 import '../widgets/app_widgets.dart';
 import 'detail_screens.dart';
 
-class KeywordsScreen extends StatefulWidget {
+class KeywordsScreen extends StatelessWidget {
   const KeywordsScreen({super.key});
 
   @override
-  State<KeywordsScreen> createState() => _KeywordsScreenState();
-}
-
-class _KeywordsScreenState extends State<KeywordsScreen> {
-  final TextEditingController _keywordController = TextEditingController();
-
-  @override
-  void dispose() {
-    _keywordController.dispose();
-    super.dispose();
-  }
-
-  void _search([String? value]) {
-    final keyword = (value ?? _keywordController.text).trim();
-    if (keyword.isEmpty) return;
-    _keywordController.text = keyword;
-    FocusScope.of(context).unfocus();
-    context.read<SearchProvider>().search(keyword);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final provider = context.watch<SearchProvider>();
-    final overview = provider.globalOverview;
-    final usingSearch = provider.hasSearched;
-    final authors = usingSearch
-        ? provider.topAuthors
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
+    final keyword = context.select<SearchProvider, String?>(
+      (provider) => provider.keyword,
+    );
+    final isSearchLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isSearchLoading,
+    );
+    final overview = context.select<SearchProvider, dynamic>(
+      (provider) => provider.globalOverview,
+    );
+    final searchAuthors = context.select<SearchProvider, List<AuthorModel>>(
+      (provider) => provider.topAuthors,
+    );
+    final searchJournals = context.select<SearchProvider, List<JournalModel>>(
+      (provider) => provider.topJournals,
+    );
+    final searchCitationVelocity =
+        context.select<SearchProvider, Map<String, int>>(
+      (provider) => provider.citationVelocity,
+    );
+
+    final authors = hasSearched
+        ? searchAuthors
         : overview?.topAuthors ?? const <AuthorModel>[];
-    final journals = usingSearch
-        ? provider.topJournals
+    final journals = hasSearched
+        ? searchJournals
         : overview?.topJournals ?? const <JournalModel>[];
-    final citationVelocity = usingSearch
-        ? provider.citationVelocity
+    final citationVelocity = hasSearched
+        ? searchCitationVelocity
         : overview?.citationVelocity ?? const <String, int>{};
-    final suggestedKeywords =
-        overview?.trendingKeywords
-            .map((keyword) => keyword.displayName)
-            .where((name) => name.trim().isNotEmpty)
-            .take(12)
-            .toList(growable: false) ??
-        const <String>[];
 
     return ScreenScroll(
       onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
       children: [
         ScreenHeader(
-          title: 'Keywords',
-          subtitle: usingSearch && provider.keyword != null
-              ? 'Phân tích keyword cho "${provider.keyword}".'
-              : 'Theo dõi xu hướng keyword từ OpenAlex.',
-          badge: usingSearch ? 'Đã lọc' : 'Trending',
+          title: 'Từ khóa',
+          subtitle: hasSearched && keyword != null
+              ? 'Phân tích từ khóa cho "$keyword".'
+              : 'Theo dõi xu hướng từ khóa từ OpenAlex.',
+          badge: hasSearched ? 'Đã lọc' : 'Xu hướng',
         ),
         const SizedBox(height: AppSpacing.medium),
-        ResearchSearchBar(
-          controller: _keywordController,
-          hintText: 'Tìm keyword hoặc research topic...',
-          onSubmitted: _search,
-          onSearchPressed: () => _search(),
-        ),
-        const SizedBox(height: 12),
-        TopicDropdownCard(
-          title: 'Keyword gợi ý',
-          icon: Icons.local_fire_department_outlined,
-          topics: suggestedKeywords,
-          onSelected: _search,
-          emptyText: 'Đang chờ keyword từ OpenAlex',
-        ),
-        if (provider.isSearchLoading && usingSearch) ...[
+        const SearchContextBanner(),
+        if (isSearchLoading && hasSearched) ...[
           const SizedBox(height: AppSpacing.medium),
           const LinearProgressIndicator(minHeight: 5),
         ],
@@ -91,7 +70,7 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
             children: [
               const SectionTitle(
                 icon: Icons.show_chart,
-                title: 'Tốc độ tăng citation của chủ đề',
+                title: 'Tốc độ tăng trích dẫn theo chủ đề',
               ),
               const SizedBox(height: 14),
               SizedBox(height: 260, child: LineChart(series: citationVelocity)),
@@ -105,7 +84,7 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
             children: [
               const SectionTitle(
                 icon: Icons.scatter_plot,
-                title: 'Tác giả có citation cao nhất',
+                title: 'Tác giả có trích dẫn cao nhất',
               ),
               const SizedBox(height: 14),
               ScatterPlot(points: _authorScatterPoints(authors)),
@@ -125,11 +104,10 @@ class _KeywordsScreenState extends State<KeywordsScreen> {
           (author) => ScatterPointData(
             label: author.displayName,
             x: author.worksCount.toDouble(),
-            y:
-                (author.citedByCount > 0
-                        ? author.citedByCount
-                        : author.worksCount * 12)
-                    .toDouble(),
+            y: (author.citedByCount > 0
+                    ? author.citedByCount
+                    : author.worksCount * 12)
+                .toDouble(),
             size: author.worksCount.toDouble(),
           ),
         )
@@ -160,7 +138,8 @@ class _AuthorsAndJournals extends StatelessWidget {
               const AppEmptyState(
                 icon: Icons.person_search,
                 title: 'Chưa có tác giả',
-                message: 'Dữ liệu tác giả sẽ xuất hiện sau khi tìm kiếm.',
+                message:
+                    'Dữ liệu tác giả sẽ xuất hiện sau khi tìm kiếm ở Trang chủ.',
               )
             else
               for (var index = 0; index < authors.take(5).length; index++) ...[
@@ -175,14 +154,15 @@ class _AuthorsAndJournals extends StatelessWidget {
           children: [
             const SectionTitle(
               icon: Icons.library_books_outlined,
-              title: 'Journal hàng đầu',
+              title: 'Tạp chí hàng đầu',
             ),
             const SizedBox(height: 14),
             if (journals.isEmpty)
               const AppEmptyState(
                 icon: Icons.library_books_outlined,
-                title: 'Chưa có journal',
-                message: 'Dữ liệu journal sẽ xuất hiện sau khi tìm kiếm.',
+                title: 'Chưa có tạp chí',
+                message:
+                    'Dữ liệu tạp chí sẽ xuất hiện sau khi tìm kiếm ở Trang chủ.',
               )
             else
               for (var index = 0; index < journals.take(5).length; index++) ...[

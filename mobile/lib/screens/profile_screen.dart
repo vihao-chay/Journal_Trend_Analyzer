@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
+import '../models/analytics_models.dart';
 import '../providers/search_provider.dart';
 import '../widgets/app_widgets.dart';
 
@@ -10,16 +11,25 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<SearchProvider>();
-    final recentCount = provider.recentSearches.length;
-    final hasGlobal = provider.globalOverview != null;
+    final recentCount = context.select<SearchProvider, int>(
+      (provider) => provider.recentSearches.length,
+    );
+    final hasGlobal = context.select<SearchProvider, bool>(
+      (provider) => provider.globalOverview != null,
+    );
+    final filters = context.select<SearchProvider, ResearchFilters>(
+      (provider) => provider.filters,
+    );
+    final hasSearched = context.select<SearchProvider, bool>(
+      (provider) => provider.hasSearched,
+    );
 
     return ScreenScroll(
       children: [
         const ScreenHeader(
           title: 'Hồ sơ',
           subtitle: 'Thiết lập trải nghiệm phân tích nghiên cứu.',
-          badge: 'Settings',
+          badge: 'Cài đặt',
         ),
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
@@ -28,7 +38,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               const SectionTitle(
                 icon: Icons.person_outline,
-                title: 'User settings',
+                title: 'Cài đặt người dùng',
               ),
               const SizedBox(height: 14),
               _SettingRow(
@@ -58,18 +68,18 @@ class ProfileScreen extends StatelessWidget {
             children: [
               SectionTitle(
                 icon: Icons.palette_outlined,
-                title: 'Theme settings',
+                title: 'Giao diện',
               ),
               SizedBox(height: 14),
               _ThemeOption(
-                title: 'Light academic',
+                title: 'Sáng học thuật',
                 subtitle: 'Nền trắng, accent xanh mềm, typography rõ ràng',
                 icon: Icons.light_mode_outlined,
                 selected: true,
               ),
               Divider(height: 22),
               _ThemeOption(
-                title: 'Dashboard cards',
+                title: 'Thẻ dashboard',
                 subtitle: 'Card bo góc, biểu đồ gọn, ưu tiên khả năng đọc',
                 icon: Icons.dashboard_customize_outlined,
                 selected: true,
@@ -79,13 +89,13 @@ class ProfileScreen extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.medium),
         FilterPanel(
-          filters: provider.filters,
-          onApply: (filters) => context.read<SearchProvider>().updateFilters(
-            filters,
-            rerunSearch: provider.hasSearched,
+          filters: filters,
+          onApply: (nextFilters) => context.read<SearchProvider>().updateFilters(
+            nextFilters,
+            rerunSearch: hasSearched,
           ),
           onReset: () => context.read<SearchProvider>().resetFilters(
-            rerunSearch: provider.hasSearched,
+            rerunSearch: hasSearched,
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
@@ -93,14 +103,14 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SectionTitle(icon: Icons.info_outline, title: 'Về website'),
+              SectionTitle(icon: Icons.info_outline, title: 'Giới thiệu'),
               SizedBox(height: 12),
               Text(
-                'OpenAlex Research Analytics giúp sinh viên và nhà nghiên cứu tìm chủ đề, đọc publication, phân tích journal, tác giả, quốc gia và keyword frontier.',
+                'Ứng dụng phân tích nghiên cứu OpenAlex giúp sinh viên và nhà nghiên cứu tìm chủ đề, đọc bài báo, phân tích tạp chí, tác giả, quốc gia và xu hướng từ khóa.',
               ),
               SizedBox(height: 12),
               MetricPill(
-                label: 'Data source: OpenAlex',
+                label: 'Nguồn dữ liệu: OpenAlex',
                 icon: Icons.dataset_outlined,
                 accentColor: AppColors.chartLine,
               ),

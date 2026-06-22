@@ -8,6 +8,7 @@ import '../models/analytics_models.dart';
 import '../models/author_model.dart';
 import '../models/journal_model.dart';
 import '../models/publication_model.dart';
+import '../models/publication_page_result.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message);
@@ -32,23 +33,46 @@ class ApiService {
   final String mailto;
   final Duration timeout;
 
+  static const int defaultPublicationPageSize = 20;
+
+  Future<PublicationPageResult> fetchPublicationsPage({
+    String? query,
+    ResearchFilters filters = ResearchFilters.empty,
+    int page = 1,
+    int perPage = defaultPublicationPageSize,
+  }) async {
+    final queryParameters = _buildWorksQuery(
+      search: query,
+      filters: filters,
+      perPage: perPage,
+      sort: _worksSort(filters) ?? 'publication_year:desc',
+    );
+    queryParameters['page'] = '${page.clamp(1, 9999)}';
+
+    final payload = await _getJson(_buildUri('/works', queryParameters));
+    final meta = _asMap(payload['meta']);
+    final publications = _asJsonList(
+      payload['results'],
+    ).map(PublicationModel.fromJson).toList(growable: false);
+
+    return PublicationPageResult(
+      publications: publications,
+      totalCount: _asInt(meta?['count']),
+      page: page,
+      perPage: perPage,
+    );
+  }
+
   Future<List<PublicationModel>> searchPublications(
     String query, {
     ResearchFilters filters = ResearchFilters.empty,
   }) async {
-    final uri = _buildUri(
-      '/works',
-      _buildWorksQuery(
-        search: query,
-        filters: filters,
-        perPage: 50,
-        sort: _worksSort(filters),
-      ),
+    final page = await fetchPublicationsPage(
+      query: query,
+      filters: filters,
+      perPage: 50,
     );
-    final payload = await _getJson(uri);
-    return _asJsonList(
-      payload['results'],
-    ).map(PublicationModel.fromJson).toList(growable: false);
+    return page.publications;
   }
 
   Future<List<PublicationModel>> fetchFeaturedPublications({
@@ -61,7 +85,7 @@ class ApiService {
         search: query,
         filters: filters,
         perPage: 12,
-        sort: _worksSort(filters) ?? 'cited_by_count:desc',
+        sort: _worksSort(filters) ?? 'publication_year:desc',
       ),
     );
     final payload = await _getJson(uri);
@@ -498,15 +522,18 @@ class ApiService {
 
   List<String> _buildWorkFilters(ResearchFilters filters) {
     final workFilters = <String>[];
+    final currentYear = DateTime.now().year;
     if (filters.fromYear != null) {
       workFilters.add(
-        'from_publication_date:${filters.fromYear!.clamp(1, 9999)}-01-01',
+        'from_publication_date:${filters.fromYear!.clamp(1, currentYear)}-01-01',
       );
     }
     if (filters.toYear != null) {
       workFilters.add(
-        'to_publication_date:${filters.toYear!.clamp(1, 9999)}-12-31',
+        'to_publication_date:${filters.toYear!.clamp(1, currentYear)}-12-31',
       );
+    } else {
+      workFilters.add('publication_year:1800-$currentYear');
     }
     if (filters.openAccessOnly) {
       workFilters.add('open_access.is_oa:true');
@@ -544,7 +571,7 @@ class ApiService {
     return switch (filters.sortMode) {
       SortMode.relevance => null,
       SortMode.citations => 'cited_by_count:desc',
-      SortMode.publicationCount => 'publication_date:desc',
+      SortMode.publicationCount => 'publication_year:desc',
     };
   }
 

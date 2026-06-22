@@ -112,6 +112,18 @@ _CountEntry<T>? _topEntry<T>(Map<T, int> counts) {
   return _CountEntry(entry.key, entry.value);
 }
 
+List<PublicationModel> sortPublicationsByYearDesc(
+  List<PublicationModel> publications,
+) {
+  final sorted = List<PublicationModel>.from(publications);
+  sorted.sort((a, b) {
+    final aYear = a.publicationYear > 0 ? a.publicationYear : 0;
+    final bYear = b.publicationYear > 0 ? b.publicationYear : 0;
+    return bYear.compareTo(aYear);
+  });
+  return sorted;
+}
+
 String formatCompactNumber(num value) {
   final rounded = value.round();
   if (rounded >= 1000000) {

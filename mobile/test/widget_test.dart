@@ -89,27 +89,27 @@ void main() {
 
     await tester.pumpWidget(MyApp(searchProvider: _testSearchProvider()));
 
-    expect(find.text('OpenAlex Research Analytics'), findsOneWidget);
+    expect(find.text('Phân tích nghiên cứu OpenAlex'), findsOneWidget);
     expect(find.text('Trang chủ nghiên cứu'), findsOneWidget);
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Journal'), findsWidgets);
-    expect(find.text('Keywords'), findsOneWidget);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Trang chủ'), findsOneWidget);
+    expect(find.text('Tạp chí'), findsWidgets);
+    expect(find.text('Từ khóa'), findsOneWidget);
+    expect(find.text('Hồ sơ'), findsWidgets);
 
-    await tester.tap(find.text('Journal').last);
+    await tester.tap(find.text('Tạp chí').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Danh sách publication'), findsOneWidget);
+    expect(find.text('Danh sách bài báo'), findsOneWidget);
 
-    await tester.tap(find.text('Keywords').last);
+    await tester.tap(find.text('Từ khóa').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Tốc độ tăng citation của chủ đề'), findsOneWidget);
-    expect(find.text('Tác giả có citation cao nhất'), findsOneWidget);
+    expect(find.text('Tốc độ tăng trích dẫn theo chủ đề'), findsOneWidget);
+    expect(find.text('Tác giả có trích dẫn cao nhất'), findsOneWidget);
 
-    await tester.tap(find.text('Profile').last);
+    await tester.tap(find.text('Hồ sơ').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Hồ sơ'), findsOneWidget);
+    expect(find.text('Cài đặt người dùng'), findsOneWidget);
   });
 }
