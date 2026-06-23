@@ -59,7 +59,9 @@ class SearchProvider extends ChangeNotifier {
     if (publicationTotalCount <= 0) {
       return 0;
     }
-    return (publicationTotalCount + ApiService.defaultPublicationPageSize - 1) ~/
+    return (publicationTotalCount +
+            ApiService.defaultPublicationPageSize -
+            1) ~/
         ApiService.defaultPublicationPageSize;
   }
 
@@ -146,6 +148,10 @@ class SearchProvider extends ChangeNotifier {
   }
 
   Future<void> loadGlobalOverview() async {
+    if (isGlobalLoading) {
+      return;
+    }
+
     isGlobalLoading = true;
     globalError = null;
     notifyListeners();
@@ -182,10 +188,8 @@ class SearchProvider extends ChangeNotifier {
       );
       globalError = null;
     } on ApiException catch (exception) {
-      globalOverview = null;
       globalError = exception.message;
     } catch (_) {
-      globalOverview = null;
       globalError = 'Không thể tải tổng quan OpenAlex. Vui lòng thử lại.';
     } finally {
       isGlobalLoading = false;

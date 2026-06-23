@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'providers/search_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/journal_screen.dart';
 import 'screens/keywords_screen.dart';
@@ -14,19 +15,29 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.searchProvider});
+  const MyApp({super.key, this.searchProvider, this.themeProvider});
 
   final SearchProvider? searchProvider;
+  final ThemeProvider? themeProvider;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => searchProvider ?? SearchProvider(),
-      child: MaterialApp(
-        title: 'Phân tích xu hướng học thuật',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const ResearchAnalyticsShell(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => searchProvider ?? SearchProvider(),
+        ),
+        ChangeNotifierProvider(create: (_) => themeProvider ?? ThemeProvider()),
+      ],
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => MaterialApp(
+          title: 'Phân tích xu hướng học thuật',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightThemeFor(themeProvider.seedColor),
+          darkTheme: AppTheme.darkThemeFor(themeProvider.seedColor),
+          themeMode: themeProvider.themeMode,
+          home: const ResearchAnalyticsShell(),
+        ),
       ),
     );
   }
@@ -78,7 +89,7 @@ class _ResearchAnalyticsShellState extends State<ResearchAnalyticsShell> {
       builder: (context, constraints) {
         final useRail = constraints.maxWidth >= 900;
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: const GradientAppBar(),
           body: useRail
               ? _DesktopBody(
@@ -139,8 +150,12 @@ class _DesktopBody extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: const Border(right: BorderSide(color: AppColors.border)),
+            color: Theme.of(context).colorScheme.surface,
+            border: Border(
+              right: BorderSide(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
@@ -155,20 +170,22 @@ class _DesktopBody extends StatelessWidget {
               selectedIndex: selectedIndex,
               onDestinationSelected: onSelected,
               extended: extended,
-              backgroundColor: AppColors.surface,
-              indicatorColor: AppColors.secondary.withValues(alpha: 0.12),
-              selectedIconTheme: const IconThemeData(
-                color: AppColors.secondary,
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              indicatorColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.14),
+              selectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.primary,
               ),
-              unselectedIconTheme: const IconThemeData(
-                color: AppColors.textSecondary,
+              unselectedIconTheme: IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              selectedLabelTextStyle: const TextStyle(
-                color: AppColors.secondary,
+              selectedLabelTextStyle: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w800,
               ),
-              unselectedLabelTextStyle: const TextStyle(
-                color: AppColors.textSecondary,
+              unselectedLabelTextStyle: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
               destinations: [
@@ -203,9 +220,10 @@ class _MobileNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
