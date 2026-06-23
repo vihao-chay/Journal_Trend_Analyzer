@@ -8,6 +8,7 @@ import 'package:mobile/models/global_overview.dart';
 import 'package:mobile/models/journal_model.dart';
 import 'package:mobile/models/publication_model.dart';
 import 'package:mobile/providers/search_provider.dart';
+import 'package:mobile/providers/theme_provider.dart';
 
 SearchProvider _testSearchProvider() {
   return SearchProvider(autoLoadGlobalOverview: false)
@@ -87,7 +88,13 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(MyApp(searchProvider: _testSearchProvider()));
+    final themeProvider = ThemeProvider(autoLoad: false);
+    await tester.pumpWidget(
+      MyApp(
+        searchProvider: _testSearchProvider(),
+        themeProvider: themeProvider,
+      ),
+    );
 
     expect(find.text('Phân tích nghiên cứu OpenAlex'), findsOneWidget);
     expect(find.text('Trang chủ nghiên cứu'), findsOneWidget);
@@ -111,5 +118,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cài đặt người dùng'), findsOneWidget);
+    expect(find.text('Chế độ hiển thị'), findsOneWidget);
+    expect(find.text('Màu chủ đạo'), findsOneWidget);
+
+    await tester.tap(find.text('Tối'));
+    await tester.pumpAndSettle();
+    expect(themeProvider.themeMode, ThemeMode.dark);
+
+    await tester.tap(find.bySemanticsLabel('Xanh ngọc'));
+    await tester.pumpAndSettle();
+    expect(themeProvider.accent, AppAccent.teal);
   });
 }

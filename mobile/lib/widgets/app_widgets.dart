@@ -114,7 +114,7 @@ class ScreenScroll extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      color: AppColors.secondary,
+      color: Theme.of(context).colorScheme.primary,
       onRefresh: onRefresh!,
       child: scrollView,
     );
@@ -135,6 +135,7 @@ class ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -152,13 +153,13 @@ class ScreenHeader extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withValues(alpha: 0.1),
+                  color: colors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   badge!,
-                  style: const TextStyle(
-                    color: AppColors.secondary,
+                  style: TextStyle(
+                    color: colors.primary,
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),
@@ -188,13 +189,22 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: theme.cardTheme.color ?? theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.border),
-        boxShadow: appCardShadow,
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: theme.brightness == Brightness.dark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 12,
+                  offset: const Offset(0, 5),
+                ),
+              ]
+            : appCardShadow,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.medium),
@@ -218,16 +228,17 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.08),
+            color: colors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppRadius.small),
           ),
-          child: Icon(icon, color: AppColors.primary, size: 18),
+          child: Icon(icon, color: colors.primary, size: 18),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -280,8 +291,8 @@ class StatCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               value,
-              style: const TextStyle(
-                color: AppColors.primary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 28,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,
@@ -368,18 +379,19 @@ class CategoryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.secondary.withValues(alpha: 0.1),
+        color: primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(7),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: AppColors.secondary,
+        style: TextStyle(
+          color: primary,
           fontSize: 10,
           fontWeight: FontWeight.w900,
         ),
@@ -479,8 +491,8 @@ class RankedBarRow extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       valueLabel ?? formatCompactNumber(value),
-                      style: const TextStyle(
-                        color: AppColors.primary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -493,7 +505,9 @@ class RankedBarRow extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: score,
                     minHeight: 8,
-                    backgroundColor: AppColors.border.withValues(alpha: 0.85),
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.85),
                     color: rankColor,
                   ),
                 ),
@@ -651,10 +665,18 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final darkPrimary = Color.lerp(colors.primary, Colors.black, 0.32)!;
     return AppBar(
       automaticallyImplyLeading: false,
       flexibleSpace: Container(
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [darkPrimary, colors.primary],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
       ),
       leading: showBack
           ? IconButton(
@@ -765,10 +787,11 @@ class ResearchSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.medium),
-        boxShadow: appCardShadow,
+        boxShadow: theme.brightness == Brightness.dark ? null : appCardShadow,
       ),
       child: TextField(
         controller: controller,
@@ -778,11 +801,11 @@ class ResearchSearchBar extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyMedium,
         decoration: InputDecoration(
           hintText: hintText,
-          prefixIcon: const Icon(Icons.search, color: AppColors.secondary),
+          prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
           suffixIcon: Container(
             margin: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: AppColors.secondary,
+              color: theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(AppRadius.small),
             ),
             child: IconButton(
@@ -846,10 +869,12 @@ class PaperCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: theme.cardTheme.color ?? theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppRadius.medium),
-            border: Border.all(color: AppColors.border),
-            boxShadow: appCardShadow,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            boxShadow: theme.brightness == Brightness.dark
+                ? null
+                : appCardShadow,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -857,8 +882,8 @@ class PaperCard extends StatelessWidget {
               Container(
                 width: 4,
                 height: 144,
-                decoration: const BoxDecoration(
-                  color: AppColors.secondary,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
                   borderRadius: BorderRadius.horizontal(
                     left: Radius.circular(AppRadius.medium),
                   ),
@@ -875,9 +900,7 @@ class PaperCard extends StatelessWidget {
                         runSpacing: 8,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          CategoryChip(
-                            label: publication.displayYear,
-                          ),
+                          CategoryChip(label: publication.displayYear),
                           MetricPill(
                             label:
                                 '${formatCompactNumber(publication.citedByCount)} trích dẫn',
@@ -898,8 +921,8 @@ class PaperCard extends StatelessWidget {
                         authors,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.secondary,
+                        style: TextStyle(
+                          color: theme.colorScheme.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),

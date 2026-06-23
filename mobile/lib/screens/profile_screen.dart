@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
-import '../models/analytics_models.dart';
 import '../providers/search_provider.dart';
+import '../providers/theme_provider.dart';
 import '../widgets/app_widgets.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -17,12 +17,13 @@ class ProfileScreen extends StatelessWidget {
     final hasGlobal = context.select<SearchProvider, bool>(
       (provider) => provider.globalOverview != null,
     );
-    final filters = context.select<SearchProvider, ResearchFilters>(
-      (provider) => provider.filters,
+    final isGlobalLoading = context.select<SearchProvider, bool>(
+      (provider) => provider.isGlobalLoading,
     );
-    final hasSearched = context.select<SearchProvider, bool>(
-      (provider) => provider.hasSearched,
+    final globalError = context.select<SearchProvider, String?>(
+      (provider) => provider.globalError,
     );
+    final themeProvider = context.watch<ThemeProvider>();
 
     return ScreenScroll(
       children: [
@@ -51,51 +52,82 @@ class ProfileScreen extends StatelessWidget {
               const Divider(height: 22),
               _SettingRow(
                 title: 'Tải lại tổng quan OpenAlex',
-                subtitle: hasGlobal
-                    ? 'Dữ liệu đã sẵn sàng'
+                subtitle: isGlobalLoading
+                    ? 'Đang tải dữ liệu mới từ OpenAlex...'
+                    : globalError != null
+                    ? 'Lần tải gần nhất thất bại'
+                    : hasGlobal
+                    ? 'Dữ liệu đã sẵn sàng - nhấn để tải lại'
                     : 'Chưa tải dữ liệu',
                 icon: Icons.refresh,
-                onTap: () =>
-                    context.read<SearchProvider>().loadGlobalOverview(),
+                isLoading: isGlobalLoading,
+                onTap: isGlobalLoading
+                    ? null
+                    : () => _reloadGlobalOverview(context),
               ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
-        const SectionCard(
+        SectionCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SectionTitle(
+              const SectionTitle(
                 icon: Icons.palette_outlined,
                 title: 'Giao diện',
               ),
-              SizedBox(height: 14),
-              _ThemeOption(
-                title: 'Sáng học thuật',
-                subtitle: 'Nền trắng, accent xanh mềm, typography rõ ràng',
-                icon: Icons.light_mode_outlined,
-                selected: true,
+              const SizedBox(height: 16),
+              Text(
+                'Chế độ hiển thị',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
-              Divider(height: 22),
-              _ThemeOption(
-                title: 'Thẻ dashboard',
-                subtitle: 'Card bo góc, biểu đồ gọn, ưu tiên khả năng đọc',
-                icon: Icons.dashboard_customize_outlined,
-                selected: true,
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<ThemeMode>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode_outlined),
+                      label: Text('Sáng'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_outlined),
+                      label: Text('Tối'),
+                    ),
+                  ],
+                  selected: {themeProvider.themeMode},
+                  onSelectionChanged: (selection) {
+                    themeProvider.setThemeMode(selection.first);
+                  },
+                ),
+              ),
+              const Divider(height: 28),
+              Text(
+                'Màu chủ đạo',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 14,
+                runSpacing: 12,
+                children: [
+                  for (final accent in AppAccent.values)
+                    _AccentSwatch(
+                      accent: accent,
+                      selected: themeProvider.accent == accent,
+                      onTap: () => themeProvider.setAccent(accent),
+                    ),
+                ],
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        FilterPanel(
-          filters: filters,
-          onApply: (nextFilters) => context.read<SearchProvider>().updateFilters(
-            nextFilters,
-            rerunSearch: hasSearched,
-          ),
-          onReset: () => context.read<SearchProvider>().resetFilters(
-            rerunSearch: hasSearched,
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
@@ -120,6 +152,23 @@ class ProfileScreen extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _reloadGlobalOverview(BuildContext context) async {
+    final provider = context.read<SearchProvider>();
+    await provider.loadGlobalOverview();
+    if (!context.mounted) {
+      return;
+    }
+
+    final error = provider.globalError;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(error ?? 'Đã tải lại dữ liệu tổng quan OpenAlex.'),
+        ),
+      );
+  }
 }
 
 class _SettingRow extends StatelessWidget {
@@ -128,12 +177,14 @@ class _SettingRow extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.isLoading = false,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -160,13 +211,26 @@ class _SettingRow extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              )
+            else
+              Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
           ],
         ),
       ),
@@ -174,45 +238,55 @@ class _SettingRow extends StatelessWidget {
   }
 }
 
-class _ThemeOption extends StatelessWidget {
-  const _ThemeOption({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
+class _AccentSwatch extends StatelessWidget {
+  const _AccentSwatch({
+    required this.accent,
     required this.selected,
+    required this.onTap,
   });
 
-  final String title;
-  final String subtitle;
-  final IconData icon;
+  final AppAccent accent;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _SettingIcon(icon: icon),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+    return Tooltip(
+      message: accent.label,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 28,
+        child: Semantics(
+          button: true,
+          selected: selected,
+          label: accent.label,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: accent.color,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: selected
+                    ? Theme.of(context).colorScheme.onSurface
+                    : Colors.white.withValues(alpha: 0.75),
+                width: selected ? 3 : 1.5,
               ),
-              const SizedBox(height: 2),
-              Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: accent.color.withValues(alpha: 0.26),
+                  blurRadius: selected ? 10 : 5,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: selected
+                ? const Icon(Icons.check, color: Colors.white, size: 22)
+                : null,
           ),
         ),
-        Icon(
-          selected ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: selected ? AppColors.success : AppColors.textSecondary,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -224,14 +298,15 @@ class _SettingIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: colors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(icon, color: AppColors.primary, size: 20),
+      child: Icon(icon, color: colors.primary, size: 20),
     );
   }
 }
