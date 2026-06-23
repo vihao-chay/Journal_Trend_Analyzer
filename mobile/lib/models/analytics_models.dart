@@ -1,5 +1,20 @@
 enum SortMode { relevance, citations, publicationCount }
 
+class CitationVelocityResult {
+  const CitationVelocityResult({
+    required this.velocity,
+    required this.sampleTotalCitations,
+    required this.sampleSize,
+  });
+
+  final Map<String, int> velocity;
+  final int sampleTotalCitations;
+  final int sampleSize;
+
+  double get averageCitations =>
+      sampleSize == 0 ? 0 : sampleTotalCitations / sampleSize;
+}
+
 class ResearchFilters {
   const ResearchFilters({
     this.fromYear,

@@ -52,6 +52,9 @@ class SearchProvider extends ChangeNotifier {
 
   List<String> recentSearches = const [];
 
+  int searchCitationTotal = 0;
+  double searchAverageCitations = 0;
+
   DashboardStats get searchDashboardStats =>
       DashboardStats.fromPublications(publications);
 
@@ -177,7 +180,7 @@ class SearchProvider extends ChangeNotifier {
         totalAuthors: results[1] as int,
         totalSources: results[2] as int,
         publicationTrend: results[3] as Map<String, int>,
-        citationVelocity: results[4] as Map<String, int>,
+        citationVelocity: (results[4] as CitationVelocityResult).velocity,
         topJournals: results[5] as List<JournalModel>,
         topAuthors: results[6] as List<AuthorModel>,
         mostCitedWork: results[7] as PublicationModel?,
@@ -211,6 +214,8 @@ class SearchProvider extends ChangeNotifier {
     journalPublicationPage = 1;
     journalPagePublications = const [];
     publicationTotalCount = 0;
+    searchCitationTotal = 0;
+    searchAverageCitations = 0;
     notifyListeners();
 
     try {
@@ -241,7 +246,10 @@ class SearchProvider extends ChangeNotifier {
         publicationPage.publications,
       );
       publicationTrend = results[1] as Map<String, int>;
-      citationVelocity = results[2] as Map<String, int>;
+      final citationResult = results[2] as CitationVelocityResult;
+      citationVelocity = citationResult.velocity;
+      searchCitationTotal = citationResult.sampleTotalCitations;
+      searchAverageCitations = citationResult.averageCitations;
       topJournals = results[3] as List<JournalModel>;
       topAuthors = results[4] as List<AuthorModel>;
       topInstitutions = results[5] as List<InstitutionModel>;
@@ -301,6 +309,8 @@ class SearchProvider extends ChangeNotifier {
     journalPublicationsError = null;
     publicationTrend = const {};
     citationVelocity = const {};
+    searchCitationTotal = 0;
+    searchAverageCitations = 0;
     topJournals = const [];
     topAuthors = const [];
     topInstitutions = const [];

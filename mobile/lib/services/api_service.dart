@@ -136,7 +136,7 @@ class ApiService {
     return _parsePublicationTrend(payload);
   }
 
-  Future<Map<String, int>> fetchCitationVelocity(
+  Future<CitationVelocityResult> fetchCitationVelocity(
     String query, {
     ResearchFilters filters = ResearchFilters.empty,
     int perPage = 100,
@@ -151,7 +151,17 @@ class ApiService {
         'id,display_name,publication_year,cited_by_count,counts_by_year';
 
     final payload = await _getJson(_buildUri('/works', queryParameters));
-    return _parseCitationVelocity(payload);
+    final results = _asJsonList(payload['results']);
+    final sampleTotalCitations = results.fold<int>(
+      0,
+      (sum, work) => sum + _asInt(work['cited_by_count']),
+    );
+
+    return CitationVelocityResult(
+      velocity: _parseCitationVelocityResults(results),
+      sampleTotalCitations: sampleTotalCitations,
+      sampleSize: results.length,
+    );
   }
 
   Future<List<JournalModel>> fetchTopJournals({
@@ -445,8 +455,9 @@ class ApiService {
     return Map<String, int>.fromEntries(sortedEntries);
   }
 
-  Map<String, int> _parseCitationVelocity(Map<String, dynamic> payload) {
-    final results = _asJsonList(payload['results']);
+  Map<String, int> _parseCitationVelocityResults(
+    List<Map<String, dynamic>> results,
+  ) {
     final citationsByYear = <int, int>{};
 
     for (final work in results) {

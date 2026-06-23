@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
 import '../models/global_overview.dart';
-import '../models/publication_model.dart';
 import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
 import '../widgets/app_widgets.dart';
@@ -71,14 +70,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final keyword = context.select<SearchProvider, String?>(
       (provider) => provider.keyword,
     );
-    final publications = context.select<SearchProvider, List<PublicationModel>>(
-      (provider) => provider.publications,
+    final publicationTotalCount = context.select<SearchProvider, int>(
+      (provider) => provider.publicationTotalCount,
+    );
+    final searchCitationTotal = context.select<SearchProvider, int>(
+      (provider) => provider.searchCitationTotal,
+    );
+    final searchAverageCitations = context.select<SearchProvider, double>(
+      (provider) => provider.searchAverageCitations,
     );
     final countryOutputs = context.select<SearchProvider, List<CountryOutput>>(
       (provider) => provider.countryOutputs,
-    );
-    final searchStats = context.select<SearchProvider, DashboardStats>(
-      (provider) => provider.searchDashboardStats,
     );
 
     final apiTopics =
@@ -136,8 +138,9 @@ class _HomeScreenState extends State<HomeScreen> {
           overview: overview,
           isLoading: isGlobalLoading,
           error: globalError,
-          searchStats: searchStats,
           hasSearched: hasSearched,
+          publicationTotalCount: publicationTotalCount,
+          searchCitationTotal: searchCitationTotal,
         ),
         if (hasSearched) ...[
           const SizedBox(height: AppSpacing.medium),
@@ -145,12 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
             keyword: keyword,
             isLoading: isSearchLoading,
             error: searchError,
-            stats: searchStats,
-            loadedPublicationCount: context.select<SearchProvider, int>(
-              (provider) => provider.publicationTotalCount > 0
-                  ? provider.publicationTotalCount
-                  : publications.length,
-            ),
+            publicationTotalCount: publicationTotalCount,
+            searchCitationTotal: searchCitationTotal,
+            searchAverageCitations: searchAverageCitations,
           ),
         ],
         const SizedBox(height: AppSpacing.medium),
@@ -348,15 +348,17 @@ class _OverviewMetrics extends StatelessWidget {
     required this.overview,
     required this.isLoading,
     required this.error,
-    required this.searchStats,
     required this.hasSearched,
+    required this.publicationTotalCount,
+    required this.searchCitationTotal,
   });
 
   final GlobalOverview? overview;
   final bool isLoading;
   final String? error;
-  final DashboardStats searchStats;
   final bool hasSearched;
+  final int publicationTotalCount;
+  final int searchCitationTotal;
 
   @override
   Widget build(BuildContext context) {
@@ -382,19 +384,19 @@ class _OverviewMetrics extends StatelessWidget {
     final cards = [
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalWorks),
-        'Công trình',
+        'Tổng bài báo',
         Icons.article_outlined,
         AppColors.secondary,
       ),
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalAuthors),
-        'Tác giả',
+        'Tổng tác giả',
         Icons.groups_outlined,
         AppColors.chartLine,
       ),
       _MetricCardData(
         formatCompactNumber(loadedOverview.totalSources),
-        'Tạp chí',
+        'Tổng tạp chí',
         Icons.library_books_outlined,
         AppColors.accent,
       ),
@@ -409,14 +411,14 @@ class _OverviewMetrics extends StatelessWidget {
     if (hasSearched) {
       cards.addAll([
         _MetricCardData(
-          formatCompactNumber(searchStats.totalPublications),
-          'Bài đã tải',
+          formatCompactNumber(publicationTotalCount),
+          'Tổng bài báo đã tìm kiếm',
           Icons.manage_search,
           AppColors.secondary,
         ),
         _MetricCardData(
-          formatCompactNumber(searchStats.totalCitations),
-          'Trích dẫn',
+          formatCompactNumber(searchCitationTotal),
+          'Trích dẫn (top 100)',
           Icons.format_quote,
           AppColors.accent,
         ),
@@ -480,15 +482,17 @@ class _SearchStateCard extends StatelessWidget {
     required this.keyword,
     required this.isLoading,
     required this.error,
-    required this.stats,
-    required this.loadedPublicationCount,
+    required this.publicationTotalCount,
+    required this.searchCitationTotal,
+    required this.searchAverageCitations,
   });
 
   final String? keyword;
   final bool isLoading;
   final String? error;
-  final DashboardStats stats;
-  final int loadedPublicationCount;
+  final int publicationTotalCount;
+  final int searchCitationTotal;
+  final double searchAverageCitations;
 
   @override
   Widget build(BuildContext context) {
@@ -519,21 +523,17 @@ class _SearchStateCard extends StatelessWidget {
               children: [
                 MetricPill(
                   label:
-                      '${formatCompactNumber(loadedPublicationCount)} bài đã tải',
+                      '${formatCompactNumber(publicationTotalCount)} kết quả',
                   icon: Icons.cloud_done_outlined,
                   accentColor: AppColors.secondary,
                 ),
                 MetricPill(
                   label:
-                      '${formatCompactNumber(stats.totalCitations)} trích dẫn',
+                      '${formatCompactNumber(searchCitationTotal)} trích dẫn',
                   icon: Icons.format_quote,
                   accentColor: AppColors.accent,
                 ),
-                MetricPill(
-                  label: 'TB ${stats.averageCitations.toStringAsFixed(1)}',
-                  icon: Icons.trending_up,
-                  accentColor: AppColors.chartLine,
-                ),
+                
               ],
             ),
         ],
