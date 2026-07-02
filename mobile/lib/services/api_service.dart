@@ -27,7 +27,7 @@ class ApiService {
   }) : _client = client ?? http.Client();
 
   static const String _host = 'api.openalex.org';
-  static const String _defaultMailto = 'team_email@gmail.com';
+  static const String _defaultMailto = 'prm_project_app@example.com';
 
   final http.Client _client;
   final String mailto;
@@ -187,7 +187,36 @@ class ApiService {
       filters: filters,
       perPage: perPage,
     );
-    return groups.map(JournalModel.fromMap).toList(growable: false);
+    final groupedJournals = groups.map(JournalModel.fromMap).toList();
+    return _hydrateJournalImpact(groupedJournals);
+  }
+
+  Future<List<JournalModel>> _hydrateJournalImpact(
+    List<JournalModel> groupedJournals,
+  ) async {
+    final topJournals = groupedJournals.take(10).toList(growable: false);
+    final detailedJournals = await Future.wait(
+      topJournals.map((journal) async {
+        final id = _normalizeOpenAlexId(journal.id);
+        if (id == null) {
+          return journal;
+        }
+        try {
+          final payload = await _getJson(_buildUri('/sources/$id', const {}));
+          final detailed = JournalModel.fromMap(payload);
+          return JournalModel(
+            id: journal.id,
+            displayName: journal.displayName,
+            worksCount: journal.worksCount,
+            citedByCount: detailed.citedByCount,
+          );
+        } catch (_) {
+          return journal;
+        }
+      }),
+    );
+
+    return [...detailedJournals, ...groupedJournals.skip(detailedJournals.length)];
   }
 
   Future<List<AuthorModel>> fetchTopAuthors({
@@ -597,34 +626,48 @@ class ApiService {
     return Uri.https(_host, path, {...queryParameters, 'mailto': mailto});
   }
 
-  Future<Map<String, dynamic>> _getJson(Uri uri) async {
-    try {
-      final response = await _client.get(uri).timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException('OpenAlex phản hồi lỗi ${response.statusCode}.');
-      }
+  Future<Map<String, dynamic>> _getJson(Uri uri, {int maxRetries = 3}) async {
+    int retries = 0;
+    while (true) {
+      try {
+        final response = await _client.get(uri).timeout(timeout);
+        
+        if ((response.statusCode == 429 || response.statusCode >= 500) &&
+            retries < maxRetries) {
+          retries++;
+          final baseDelay = 1000 * (1 << retries);
+          final jitter = DateTime.now().millisecond % 1000;
+          final delay = Duration(milliseconds: baseDelay + jitter);
+          await Future.delayed(delay);
+          continue; // Retry
+        }
 
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw ApiException('OpenAlex phản hồi lỗi ${response.statusCode}.');
+        }
 
-      throw const FormatException('Expected a JSON object response.');
-    } on ApiException {
-      rethrow;
-    } on TimeoutException {
-      throw const ApiException('OpenAlex phản hồi quá lâu.');
-    } on SocketException {
-      throw const ApiException('Không có kết nối internet. Vui lòng thử lại.');
-    } on http.ClientException {
-      throw const ApiException('Không thể kết nối tới OpenAlex.');
-    } on FormatException {
-      throw const ApiException('OpenAlex trả về dữ liệu không hợp lệ.');
-    } catch (_) {
-      throw const ApiException('Có lỗi khi tải dữ liệu OpenAlex.');
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded);
+        }
+
+        throw const FormatException('Expected a JSON object response.');
+      } on ApiException {
+        rethrow;
+      } on TimeoutException {
+        throw const ApiException('OpenAlex phản hồi quá lâu.');
+      } on SocketException {
+        throw const ApiException('Không có kết nối internet. Vui lòng thử lại.');
+      } on http.ClientException {
+        throw const ApiException('Không thể kết nối tới OpenAlex.');
+      } on FormatException {
+        throw const ApiException('OpenAlex trả về dữ liệu không hợp lệ.');
+      } catch (_) {
+        throw const ApiException('Có lỗi khi tải dữ liệu OpenAlex.');
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
@@ -143,7 +144,14 @@ class _AuthorsAndJournals extends StatelessWidget {
               )
             else
               for (var index = 0; index < authors.take(5).length; index++) ...[
-                AuthorCard(author: authors[index], rank: index + 1),
+                AuthorCard(
+                  author: authors[index],
+                  rank: index + 1,
+                  onTap: () {
+                    final url = Uri.parse('https://openalex.org/${authors[index].id}');
+                    launchUrl(url);
+                  },
+                ),
                 const SizedBox(height: 12),
               ],
           ],

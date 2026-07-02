@@ -101,40 +101,21 @@ class _HomeScreenState extends State<HomeScreen> {
           badge: 'OpenAlex',
         ),
         const SizedBox(height: AppSpacing.medium),
-        ResearchSearchBar(
-          controller: _searchController,
-          onSubmitted: _submitSearch,
-          onSearchPressed: () => _submitSearch(),
-        ),
-        const SizedBox(height: 12),
-        _TopicChips(
-          title: 'Tìm kiếm gần đây',
-          icon: Icons.history,
-          topics: recentSearches,
-          onSelected: _submitSearch,
-          emptyText: 'Chưa có lịch sử tìm kiếm',
-        ),
-        const SizedBox(height: 12),
-        TopicDropdownCard(
-          title: 'Chủ đề gợi ý',
-          icon: Icons.local_fire_department_outlined,
-          topics: suggestedTopics,
-          onSelected: _submitSearch,
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        _YearFilterCard(
+        
+        // Cùng một ô cho Search và Filter
+        _CompactSearchAndFilterCard(
+          searchController: _searchController,
+          onSubmitSearch: _submitSearch,
           filters: filters,
-          onApply: (fromYear, toYear) =>
-              context.read<SearchProvider>().updateFilters(
-                ResearchFilters(fromYear: fromYear, toYear: toYear),
-                rerunSearch: hasSearched,
-              ),
-          onReset: () => context.read<SearchProvider>().resetFilters(
-            rerunSearch: hasSearched,
-          ),
+          hasSearched: hasSearched,
+          recentSearches: recentSearches,
+          suggestedTopics: suggestedTopics,
         ),
-        const SizedBox(height: AppSpacing.medium),
-        _OverviewMetrics(
+        
+        const SizedBox(height: AppSpacing.small),
+        
+        // Phần thống kê thu nhỏ
+        _CompactOverviewMetrics(
           overview: overview,
           isLoading: isGlobalLoading,
           error: globalError,
@@ -142,8 +123,9 @@ class _HomeScreenState extends State<HomeScreen> {
           publicationTotalCount: publicationTotalCount,
           searchCitationTotal: searchCitationTotal,
         ),
+        
         if (hasSearched) ...[
-          const SizedBox(height: AppSpacing.medium),
+          const SizedBox(height: AppSpacing.small),
           _SearchStateCard(
             keyword: keyword,
             isLoading: isSearchLoading,
@@ -153,6 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
             searchAverageCitations: searchAverageCitations,
           ),
         ],
+        
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
           child: Column(
@@ -176,77 +159,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _TopicChips extends StatelessWidget {
-  const _TopicChips({
-    required this.title,
-    required this.icon,
-    required this.topics,
-    required this.onSelected,
-    this.emptyText,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<String> topics;
-  final ValueChanged<String> onSelected;
-  final String? emptyText;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.secondary, size: 18),
-              const SizedBox(width: 8),
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (topics.isEmpty)
-            Text(
-              emptyText ?? 'Chưa có dữ liệu',
-              style: Theme.of(context).textTheme.bodySmall,
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final topic in topics.take(10))
-                  ActionChip(
-                    label: Text(topic),
-                    onPressed: () => onSelected(topic),
-                  ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _YearFilterCard extends StatefulWidget {
-  const _YearFilterCard({
+class _CompactSearchAndFilterCard extends StatefulWidget {
+  const _CompactSearchAndFilterCard({
+    required this.searchController,
+    required this.onSubmitSearch,
     required this.filters,
-    required this.onApply,
-    required this.onReset,
+    required this.hasSearched,
+    required this.recentSearches,
+    required this.suggestedTopics,
   });
 
+  final TextEditingController searchController;
+  final void Function([String?]) onSubmitSearch;
   final ResearchFilters filters;
-  final void Function(int? fromYear, int? toYear) onApply;
-  final VoidCallback onReset;
+  final bool hasSearched;
+  final List<String> recentSearches;
+  final List<String> suggestedTopics;
 
   @override
-  State<_YearFilterCard> createState() => _YearFilterCardState();
+  State<_CompactSearchAndFilterCard> createState() => _CompactSearchAndFilterCardState();
 }
 
-class _YearFilterCardState extends State<_YearFilterCard> {
+class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard> {
   late final TextEditingController _fromYearController;
   late final TextEditingController _toYearController;
+  bool _isFilterExpanded = false;
 
   @override
   void initState() {
@@ -257,7 +194,7 @@ class _YearFilterCardState extends State<_YearFilterCard> {
   }
 
   @override
-  void didUpdateWidget(covariant _YearFilterCard oldWidget) {
+  void didUpdateWidget(covariant _CompactSearchAndFilterCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.filters != widget.filters) {
       _syncFromFilters();
@@ -276,75 +213,137 @@ class _YearFilterCardState extends State<_YearFilterCard> {
     _toYearController.text = widget.filters.toYear?.toString() ?? '';
   }
 
-  void _apply() {
-    widget.onApply(
-      int.tryParse(_fromYearController.text.trim()),
-      int.tryParse(_toYearController.text.trim()),
+  void _applyFilter() {
+    FocusScope.of(context).unfocus();
+    context.read<SearchProvider>().updateFilters(
+      ResearchFilters(
+        fromYear: int.tryParse(_fromYearController.text.trim()),
+        toYear: int.tryParse(_toYearController.text.trim()),
+      ),
+      rerunSearch: widget.hasSearched,
     );
+    if (widget.searchController.text.trim().isNotEmpty) {
+      widget.onSubmitSearch();
+    }
   }
 
-  void _reset() {
+  void _resetFilter() {
     _fromYearController.clear();
     _toYearController.clear();
-    widget.onReset();
+    FocusScope.of(context).unfocus();
+    context.read<SearchProvider>().resetFilters(
+      rerunSearch: widget.hasSearched,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return SectionCard(
-      accentColor: AppColors.secondary,
+      padding: const EdgeInsets.all(8),
+      accentColor: AppColors.primary,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionTitle(icon: Icons.date_range, title: 'Lọc theo năm'),
-          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  controller: _fromYearController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Từ năm'),
+                child: ResearchSearchBar(
+                  controller: widget.searchController,
+                  onSubmitted: widget.onSubmitSearch,
+                  onSearchPressed: () => widget.onSubmitSearch(),
+                  suggestions: widget.recentSearches,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: _toYearController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Đến năm'),
+              if (widget.suggestedTopics.isNotEmpty)
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.local_fire_department_outlined, color: AppColors.primary),
+                  tooltip: 'Chủ đề gợi ý',
+                  onSelected: (topic) {
+                    widget.searchController.text = topic;
+                    widget.onSubmitSearch(topic);
+                  },
+                  itemBuilder: (context) {
+                    return widget.suggestedTopics.map((topic) {
+                      return PopupMenuItem(
+                        value: topic,
+                        child: Text(topic),
+                      );
+                    }).toList();
+                  },
                 ),
+              IconButton(
+                icon: Icon(
+                  _isFilterExpanded ? Icons.filter_list_off : Icons.filter_list,
+                  color: AppColors.primary,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isFilterExpanded = !_isFilterExpanded;
+                  });
+                },
+                tooltip: 'Bộ lọc',
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _reset,
-                  icon: const Icon(Icons.restart_alt, size: 18),
-                  label: const Text('Đặt lại'),
+          if (_isFilterExpanded) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.date_range, size: 16, color: AppColors.textSecondary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _fromYearController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Từ năm',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _apply,
-                  icon: const Icon(Icons.check, size: 18),
-                  label: const Text('Áp dụng'),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _toYearController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Đến năm',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: _resetFilter,
+                  color: AppColors.error,
+                  tooltip: 'Đặt lại',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.check, size: 20),
+                  onPressed: _applyFilter,
+                  color: AppColors.secondary,
+                  tooltip: 'Áp dụng',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ]
         ],
       ),
     );
   }
 }
 
-class _OverviewMetrics extends StatelessWidget {
-  const _OverviewMetrics({
+class _CompactOverviewMetrics extends StatelessWidget {
+  const _CompactOverviewMetrics({
     required this.overview,
     required this.isLoading,
     required this.error,
@@ -364,115 +363,65 @@ class _OverviewMetrics extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isLoading && overview == null) {
       return const SectionCard(
+        padding: EdgeInsets.all(12),
         child: SizedBox(
-          height: 160,
-          child: AppLoadingState(message: 'Đang tải tổng quan OpenAlex...'),
+          height: 40,
+          child: AppLoadingState(message: 'Đang tải thống kê...'),
         ),
       );
     }
 
     if (overview == null) {
       return SectionCard(
+        padding: const EdgeInsets.all(12),
         child: AppErrorState(
-          message: error ?? 'Không thể tải tổng quan OpenAlex.',
+          message: error ?? 'Không thể tải thống kê.',
           onRetry: () => context.read<SearchProvider>().loadGlobalOverview(),
         ),
       );
     }
 
     final loadedOverview = overview!;
-    final cards = [
-      _MetricCardData(
-        formatCompactNumber(loadedOverview.totalWorks),
-        'Tổng bài báo',
-        Icons.article_outlined,
-        AppColors.secondary,
-      ),
-      _MetricCardData(
-        formatCompactNumber(loadedOverview.totalAuthors),
-        'Tổng tác giả',
-        Icons.groups_outlined,
-        AppColors.chartLine,
-      ),
-      _MetricCardData(
-        formatCompactNumber(loadedOverview.totalSources),
-        'Tổng tạp chí',
-        Icons.library_books_outlined,
-        AppColors.accent,
-      ),
-      _MetricCardData(
-        loadedOverview.peakYear == null ? 'N/A' : '${loadedOverview.peakYear}',
-        'Năm cao điểm',
-        Icons.calendar_month,
-        AppColors.primaryLight,
-      ),
-    ];
 
-    if (hasSearched) {
-      cards.addAll([
-        _MetricCardData(
-          formatCompactNumber(publicationTotalCount),
-          'Tổng bài báo đã tìm kiếm',
-          Icons.manage_search,
-          AppColors.secondary,
-        ),
-        _MetricCardData(
-          formatCompactNumber(searchCitationTotal),
-          'Trích dẫn (top 100)',
-          Icons.format_quote,
-          AppColors.accent,
-        ),
-      ]);
-    }
-
-    return _MetricGrid(cards: cards);
-  }
-}
-
-class _MetricCardData {
-  const _MetricCardData(this.value, this.label, this.icon, this.color);
-
-  final String value;
-  final String label;
-  final IconData icon;
-  final Color color;
-}
-
-class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({required this.cards});
-
-  final List<_MetricCardData> cards;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= 900
-            ? 4
-            : constraints.maxWidth >= 620
-            ? 3
-            : 2;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: cards.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.25,
+    return SectionCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.query_stats,
+            title: 'Thống kê tổng quan OpenAlex',
           ),
-          itemBuilder: (context, index) {
-            final card = cards[index];
-            return MetricCard(
-              value: card.value,
-              label: card.label,
-              icon: card.icon,
-              accentColor: card.color,
-            );
-          },
-        );
-      },
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              MetricPill(
+                label: '${formatCompactNumber(loadedOverview.totalWorks)} Bài báo',
+                icon: Icons.article_outlined,
+                accentColor: AppColors.secondary,
+              ),
+              MetricPill(
+                label: '${formatCompactNumber(loadedOverview.totalAuthors)} Tác giả',
+                icon: Icons.groups_outlined,
+                accentColor: AppColors.chartLine,
+              ),
+              MetricPill(
+                label: '${formatCompactNumber(loadedOverview.totalSources)} Tạp chí',
+                icon: Icons.library_books_outlined,
+                accentColor: AppColors.accent,
+              ),
+              if (loadedOverview.peakYear != null)
+                MetricPill(
+                  label: 'Đỉnh: ${loadedOverview.peakYear}',
+                  icon: Icons.calendar_month,
+                  accentColor: AppColors.primaryLight,
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -497,6 +446,7 @@ class _SearchStateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionCard(
+      padding: const EdgeInsets.all(12),
       accentColor: AppColors.chartLine,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,9 +455,9 @@ class _SearchStateCard extends StatelessWidget {
             icon: Icons.analytics_outlined,
             title: keyword == null ? 'Kết quả tìm kiếm' : 'Kết quả: "$keyword"',
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           if (isLoading)
-            const LinearProgressIndicator(minHeight: 5)
+            const LinearProgressIndicator(minHeight: 3)
           else if (error != null)
             Text(
               error!,
@@ -533,7 +483,6 @@ class _SearchStateCard extends StatelessWidget {
                   icon: Icons.format_quote,
                   accentColor: AppColors.accent,
                 ),
-                
               ],
             ),
         ],
