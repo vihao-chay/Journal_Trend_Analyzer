@@ -769,7 +769,7 @@ class SearchContextBanner extends StatelessWidget {
   }
 }
 
-class ResearchSearchBar extends StatelessWidget {
+class ResearchSearchBar extends StatefulWidget {
   const ResearchSearchBar({
     super.key,
     required this.controller,
@@ -777,6 +777,7 @@ class ResearchSearchBar extends StatelessWidget {
     required this.onSearchPressed,
     this.onChanged,
     this.hintText = 'Tìm chủ đề, bài báo, tác giả...',
+    this.suggestions = const [],
   });
 
   final TextEditingController controller;
@@ -784,42 +785,141 @@ class ResearchSearchBar extends StatelessWidget {
   final VoidCallback onSearchPressed;
   final ValueChanged<String>? onChanged;
   final String hintText;
+  final List<String> suggestions;
+
+  @override
+  State<ResearchSearchBar> createState() => _ResearchSearchBarState();
+}
+
+class _ResearchSearchBarState extends State<ResearchSearchBar> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        boxShadow: theme.brightness == Brightness.dark ? null : appCardShadow,
-      ),
-      child: TextField(
-        controller: controller,
-        onSubmitted: onSubmitted,
-        onChanged: onChanged,
-        textInputAction: TextInputAction.search,
-        style: Theme.of(context).textTheme.bodyMedium,
-        decoration: InputDecoration(
-          hintText: hintText,
-          prefixIcon: Icon(Icons.search, color: theme.colorScheme.primary),
-          suffixIcon: Container(
-            margin: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(AppRadius.small),
-            ),
-            child: IconButton(
-              tooltip: 'Tìm kiếm',
-              icon: const Icon(
-                Icons.arrow_forward,
-                color: Colors.white,
-                size: 20,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return RawAutocomplete<String>(
+          textEditingController: widget.controller,
+          focusNode: _focusNode,
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (widget.suggestions.isEmpty) {
+              return const Iterable<String>.empty();
+            }
+            if (textEditingValue.text.isEmpty) {
+              return widget.suggestions;
+            }
+            return widget.suggestions.where((String option) {
+              return option
+                  .toLowerCase()
+                  .contains(textEditingValue.text.toLowerCase());
+            });
+          },
+          onSelected: (String selection) {
+            widget.onSubmitted(selection);
+          },
+          fieldViewBuilder: (
+            BuildContext context,
+            TextEditingController textEditingController,
+            FocusNode focusNode,
+            VoidCallback onFieldSubmitted,
+          ) {
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                boxShadow:
+                    theme.brightness == Brightness.dark ? null : appCardShadow,
               ),
-              onPressed: onSearchPressed,
-            ),
-          ),
-        ),
-      ),
+              child: TextField(
+                controller: textEditingController,
+                focusNode: focusNode,
+                onSubmitted: (String value) {
+                  onFieldSubmitted();
+                  widget.onSubmitted(value);
+                },
+                onChanged: widget.onChanged,
+                textInputAction: TextInputAction.search,
+                style: Theme.of(context).textTheme.bodyMedium,
+                decoration: InputDecoration(
+                  hintText: widget.hintText,
+                  prefixIcon:
+                      Icon(Icons.search, color: theme.colorScheme.primary),
+                  suffixIcon: Container(
+                    margin: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(AppRadius.small),
+                    ),
+                    child: IconButton(
+                      tooltip: 'Tìm kiếm',
+                      icon: const Icon(
+                        Icons.arrow_forward,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: widget.onSearchPressed,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (
+            BuildContext context,
+            AutocompleteOnSelected<String> onSelected,
+            Iterable<String> options,
+          ) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                clipBehavior: Clip.antiAlias,
+                child: SizedBox(
+                  width: constraints.biggest.width,
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final String option = options.elementAt(index);
+                      return InkWell(
+                        onTap: () {
+                          onSelected(option);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 12.0,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.history, size: 18, color: Colors.grey),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  option,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -1016,18 +1116,29 @@ class JournalCard extends StatelessWidget {
 }
 
 class AuthorCard extends StatelessWidget {
-  const AuthorCard({super.key, required this.author, required this.rank});
+  const AuthorCard({
+    super.key,
+    required this.author,
+    required this.rank,
+    this.onTap,
+  });
 
   final AuthorModel author;
   final int rank;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          _RankBadge(rank: rank),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        child: SectionCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              _RankBadge(rank: rank),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1061,6 +1172,8 @@ class AuthorCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    ),
       ),
     );
   }
@@ -1446,10 +1559,19 @@ class HorizontalBarChart extends StatelessWidget {
     super.key,
     required this.data,
     this.valueSuffix = 'bài',
+    this.onTap,
   });
 
   final List<ChartBarData> data;
   final String valueSuffix;
+  final void Function(int index)? onTap;
+
+  static const _barColors = [
+    AppColors.accent,
+    AppColors.secondary,
+    AppColors.chartLine,
+    Color(0xFF64748B),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1462,211 +1584,128 @@ class HorizontalBarChart extends StatelessWidget {
     }
 
     final visibleData = data.take(8).toList(growable: false);
-    final chartHeight = (70.0 + visibleData.length * 58.0)
-        .clamp(260.0, 560.0)
-        .toDouble();
-
-    return SizedBox(
-      height: chartHeight,
-      width: double.infinity,
-      child: CustomPaint(
-        painter: _HorizontalBarChartPainter(
-          data: visibleData,
-          valueSuffix: valueSuffix,
-          textStyle: Theme.of(context).textTheme.bodySmall,
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizontalBarChartPainter extends CustomPainter {
-  const _HorizontalBarChartPainter({
-    required this.data,
-    required this.valueSuffix,
-    required this.textStyle,
-  });
-
-  final List<ChartBarData> data;
-  final String valueSuffix;
-  final TextStyle? textStyle;
-
-  static const _barColors = [
-    AppColors.accent,
-    AppColors.secondary,
-    AppColors.chartLine,
-    Color(0xFF64748B),
-  ];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) return;
-
-    const plotLeft = 34.0;
-    final plotRight = size.width - 12;
-    const plotTop = 12.0;
-    final plotBottom = size.height - 44;
-    final plotWidth = math.max(1.0, plotRight - plotLeft);
-    final plotHeight = math.max(1.0, plotBottom - plotTop);
     final maxValue = math.max(
-      1,
-      data.map((item) => item.value).reduce(math.max),
-    );
-    final rowHeight = plotHeight / data.length;
-
-    final gridPaint = Paint()
-      ..color = AppColors.border.withValues(alpha: 0.78)
-      ..strokeWidth = 1;
-    final trackPaint = Paint()
-      ..color = AppColors.border.withValues(alpha: 0.58);
-
-    for (var tick = 0; tick <= 4; tick++) {
-      final x = plotLeft + plotWidth * tick / 4;
-      canvas.drawLine(Offset(x, plotTop), Offset(x, plotBottom), gridPaint);
-      _drawText(
-        canvas,
-        tick == 0 ? '0' : formatCompactNumber(maxValue * tick / 4),
-        Offset(x, plotBottom + 8),
-        maxWidth: 54,
-        color: AppColors.textSecondary,
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        alignCenter: true,
-      );
-    }
-
-    _drawVerticalText(canvas, 'Số bài', Offset(10, plotTop + plotHeight / 2));
-    _drawText(
-      canvas,
-      _capitalizeAxisLabel(valueSuffix),
-      Offset(plotLeft + plotWidth / 2, size.height - 14),
-      maxWidth: 48,
-      color: AppColors.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w800,
-      alignCenter: true,
+      1.0,
+      visibleData.map((item) => item.value).reduce(math.max).toDouble(),
     );
 
-    for (var index = 0; index < data.length; index++) {
-      final item = data[index];
-      final rowTop = plotTop + rowHeight * index;
-      final labelY = rowTop + 4;
-      final barHeight = math.min(14.0, rowHeight * 0.24);
-      final barTop = rowTop + math.min(34.0, rowHeight * 0.52);
-      final ratio = (item.value / maxValue).clamp(0.0, 1.0).toDouble();
-      final barWidth = math.max(2.0, plotWidth * ratio);
-      final color = index < _barColors.length
-          ? _barColors[index]
-          : AppColors.primary.withValues(alpha: 0.72);
-
-      final valueText = formatCompactNumber(item.value);
-      final valuePainter = _textPainter(
-        valueText,
-        color: AppColors.primary,
-        fontSize: 11,
-        fontWeight: FontWeight.w900,
-      )..layout(maxWidth: 72);
-      valuePainter.paint(
-        canvas,
-        Offset(plotRight - valuePainter.width, labelY),
-      );
-
-      _drawText(
-        canvas,
-        '${index + 1}. ${item.label}',
-        Offset(plotLeft, labelY),
-        maxWidth: math.max(72, plotWidth - valuePainter.width - 16),
-        color: AppColors.textPrimary,
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
-        maxLines: 1,
-      );
-
-      final trackRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(plotLeft, barTop, plotWidth, barHeight),
-        const Radius.circular(999),
-      );
-      canvas.drawRRect(trackRect, trackPaint);
-
-      final barRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(plotLeft, barTop, barWidth, barHeight),
-        const Radius.circular(999),
-      );
-      canvas.drawRRect(barRect, Paint()..color = color);
-    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < visibleData.length; index++) ...[
+          if (index > 0) const SizedBox(height: 12),
+          _buildBarRow(context, index, visibleData[index], maxValue),
+        ],
+      ],
+    );
   }
 
-  void _drawText(
-    Canvas canvas,
-    String text,
-    Offset offset, {
-    required double maxWidth,
-    required Color color,
-    required double fontSize,
-    required FontWeight fontWeight,
-    int maxLines = 1,
-    bool alignCenter = false,
-    bool alignRight = false,
-  }) {
-    final painter = _textPainter(
-      text,
-      color: color,
-      fontSize: fontSize,
-      fontWeight: fontWeight,
-      maxLines: maxLines,
-    )..layout(maxWidth: maxWidth);
-    final dx = alignRight
-        ? offset.dx - painter.width
-        : alignCenter
-        ? offset.dx - painter.width / 2
-        : offset.dx;
-    painter.paint(canvas, Offset(dx, offset.dy));
-  }
+  Widget _buildBarRow(
+    BuildContext context,
+    int index,
+    ChartBarData item,
+    double maxValue,
+  ) {
+    final color = _barColors[index % _barColors.length];
 
-  void _drawVerticalText(Canvas canvas, String text, Offset center) {
-    final painter = _textPainter(
-      text,
-      color: AppColors.textSecondary,
-      fontSize: 11,
-      fontWeight: FontWeight.w800,
-    )..layout(maxWidth: 80);
-
-    canvas
-      ..save()
-      ..translate(center.dx, center.dy)
-      ..rotate(-math.pi / 2);
-    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
-    canvas.restore();
-  }
-
-  TextPainter _textPainter(
-    String text, {
-    required Color color,
-    required double fontSize,
-    required FontWeight fontWeight,
-    int maxLines = 1,
-  }) {
-    return TextPainter(
-      text: TextSpan(
-        text: text,
-        style: (textStyle ?? const TextStyle()).copyWith(
-          color: color,
-          fontSize: fontSize,
-          fontWeight: fontWeight,
-          height: 1.18,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap != null ? () => onTap!(index) : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 28,
+                child: Text(
+                  '${index + 1}.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${formatCompactNumber(item.value)} ${valueSuffix.toLowerCase()}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final ratio = (item.value / maxValue).clamp(0.0, 1.0);
+                        return Stack(
+                          children: [
+                            Container(
+                              height: 12,
+                              width: constraints.maxWidth,
+                              decoration: BoxDecoration(
+                                color: AppColors.border.withValues(alpha: 0.58),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOutCubic,
+                              height: 12,
+                              width: math.max(
+                                12.0,
+                                constraints.maxWidth * ratio,
+                              ),
+                              decoration: BoxDecoration(
+                                color: color,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
-      textDirection: TextDirection.ltr,
-      maxLines: maxLines,
-      ellipsis: '...',
     );
-  }
-
-  @override
-  bool shouldRepaint(covariant _HorizontalBarChartPainter oldDelegate) {
-    return oldDelegate.data != data ||
-        oldDelegate.valueSuffix != valueSuffix ||
-        oldDelegate.textStyle != textStyle;
   }
 }
 
@@ -1726,7 +1765,7 @@ List<_TrendPoint> _trendPointsFromMap(Map<String, int> trend) {
       .toList(growable: false);
 }
 
-class LineChart extends StatelessWidget {
+class LineChart extends StatefulWidget {
   const LineChart({
     super.key,
     required this.series,
@@ -1741,30 +1780,70 @@ class LineChart extends StatelessWidget {
   final int maxPoints;
 
   @override
+  State<LineChart> createState() => _LineChartState();
+}
+
+class _LineChartState extends State<LineChart> {
+  int? _activeIndex;
+
+  @override
   Widget build(BuildContext context) {
-    final points = _trendPointsFromMap(series);
-    final displayed = points.length > maxPoints
-        ? points.sublist(points.length - maxPoints)
+    final points = _trendPointsFromMap(widget.series);
+    final displayed = points.length > widget.maxPoints
+        ? points.sublist(points.length - widget.maxPoints)
         : points;
 
     if (displayed.isEmpty) {
       return const AppEmptyState(
         icon: Icons.show_chart,
         title: 'Chưa có tốc độ trích dẫn',
-        message:
-            'OpenAlex chưa trả về dữ liệu trích dẫn theo năm cho chủ đề này.',
+        message: 'OpenAlex chưa trả về dữ liệu trích dẫn theo năm cho chủ đề này.',
       );
     }
 
-    return CustomPaint(
-      painter: _LineChartPainter(
-        points: displayed,
-        xAxisLabel: xAxisLabel,
-        yAxisLabel: yAxisLabel,
-        textStyle: Theme.of(context).textTheme.bodySmall,
-      ),
-      child: const SizedBox.expand(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return MouseRegion(
+          onHover: (event) {
+            _updateActiveIndex(event.localPosition, constraints.biggest, displayed.length);
+          },
+          onExit: (_) => setState(() => _activeIndex = null),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (details) {
+              _updateActiveIndex(details.localPosition, constraints.biggest, displayed.length);
+            },
+            onTapUp: (_) => setState(() => _activeIndex = null),
+            child: CustomPaint(
+              painter: _LineChartPainter(
+                points: displayed,
+                xAxisLabel: widget.xAxisLabel,
+                yAxisLabel: widget.yAxisLabel,
+                textStyle: Theme.of(context).textTheme.bodySmall,
+                activeIndex: _activeIndex,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+        );
+      },
     );
+  }
+
+  void _updateActiveIndex(Offset pos, Size size, int pointsLength) {
+    const left = 78.0;
+    const right = 18.0;
+    final plotWidth = math.max(1.0, size.width - left - right);
+    final x = pos.dx - left;
+    if (x < -10 || x > plotWidth + 10 || pointsLength == 0) {
+      if (_activeIndex != null) setState(() => _activeIndex = null);
+      return;
+    }
+    final xDivisor = pointsLength > 1 ? pointsLength - 1 : 1;
+    final index = (x / plotWidth * xDivisor).round().clamp(0, pointsLength - 1);
+    if (index != _activeIndex) {
+      setState(() => _activeIndex = index);
+    }
   }
 }
 
@@ -1774,12 +1853,14 @@ class _LineChartPainter extends CustomPainter {
     required this.xAxisLabel,
     required this.yAxisLabel,
     required this.textStyle,
+    required this.activeIndex,
   });
 
   final List<_TrendPoint> points;
   final String xAxisLabel;
   final String yAxisLabel;
   final TextStyle? textStyle;
+  final int? activeIndex;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1907,10 +1988,46 @@ class _LineChartPainter extends CustomPainter {
       ..color = AppColors.secondary
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-    for (final offset in offsets) {
-      canvas
-        ..drawCircle(offset, 4, fillPaint)
-        ..drawCircle(offset, 4, pointPaint);
+      
+    for (var i = 0; i < offsets.length; i++) {
+      if (i == activeIndex) {
+        canvas
+          ..drawCircle(offsets[i], 6, fillPaint)
+          ..drawCircle(offsets[i], 6, pointPaint..strokeWidth = 3);
+          
+        final tooltipText = '${points[i].year}: ${formatCompactNumber(points[i].value)}';
+        final painter = TextPainter(
+          text: TextSpan(
+            text: tooltipText,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        
+        final tooltipRect = Rect.fromCenter(
+          center: Offset(offsets[i].dx, offsets[i].dy - 24),
+          width: painter.width + 16,
+          height: painter.height + 12,
+        );
+        
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
+          Paint()..color = AppColors.surface,
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
+          Paint()..color = AppColors.border..style = PaintingStyle.stroke..strokeWidth = 1,
+        );
+        painter.paint(canvas, Offset(tooltipRect.left + 8, tooltipRect.top + 6));
+      } else {
+        canvas
+          ..drawCircle(offsets[i], 4, fillPaint)
+          ..drawCircle(offsets[i], 4, pointPaint..strokeWidth = 2);
+      }
     }
   }
 
@@ -1973,7 +2090,8 @@ class _LineChartPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.xAxisLabel != xAxisLabel ||
         oldDelegate.yAxisLabel != yAxisLabel ||
-        oldDelegate.textStyle != textStyle;
+        oldDelegate.textStyle != textStyle ||
+        oldDelegate.activeIndex != activeIndex;
   }
 }
 

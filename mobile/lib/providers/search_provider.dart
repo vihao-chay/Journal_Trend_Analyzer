@@ -160,20 +160,35 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final results = await Future.wait<dynamic>([
-        _apiService.fetchEntityCount('/works'),
-        _apiService.fetchEntityCount('/authors'),
-        _apiService.fetchEntityCount('/sources'),
-        _apiService.fetchGlobalPublicationTrend(),
-        _apiService.fetchCitationVelocity(''),
-        _apiService.fetchTopJournals(),
-        _apiService.fetchTopAuthors(),
-        _apiService.fetchMostCitedWork(),
-        _apiService.fetchTopInstitutions(),
-        _apiService.fetchCountryOutputs(),
-        _apiService.fetchTrendingKeywords(),
-        _apiService.fetchFeaturedPublications(),
+      final batch1 = await Future.wait<dynamic>([
+        _safe(_apiService.fetchEntityCount('/works'), 0),
+        _safe(_apiService.fetchEntityCount('/authors'), 0),
+        _safe(_apiService.fetchEntityCount('/sources'), 0),
       ]);
+      final batch2 = await Future.wait<dynamic>([
+        _safe(_apiService.fetchGlobalPublicationTrend(), const <String, int>{}),
+        _safe(
+          _apiService.fetchCitationVelocity(''),
+          const CitationVelocityResult(
+            velocity: <String, int>{},
+            sampleTotalCitations: 0,
+            sampleSize: 0,
+          ),
+        ),
+        _safe(_apiService.fetchTopJournals(), const <JournalModel>[]),
+      ]);
+      final batch3 = await Future.wait<dynamic>([
+        _safe(_apiService.fetchTopAuthors(), const <AuthorModel>[]),
+        _safe<PublicationModel?>(_apiService.fetchMostCitedWork(), null),
+        _safe(_apiService.fetchTopInstitutions(), const <InstitutionModel>[]),
+      ]);
+      final batch4 = await Future.wait<dynamic>([
+        _safe(_apiService.fetchCountryOutputs(), const <CountryOutput>[]),
+        _safe(_apiService.fetchTrendingKeywords(), const <KeywordMetric>[]),
+        _safe(_apiService.fetchFeaturedPublications(), const <PublicationModel>[]),
+      ]);
+
+      final results = [...batch1, ...batch2, ...batch3, ...batch4];
 
       globalOverview = GlobalOverview.fromApiResults(
         totalWorks: results[0] as int,
@@ -200,6 +215,15 @@ class SearchProvider extends ChangeNotifier {
     }
   }
 
+  Future<T> _safe<T>(Future<T> future, T fallback) async {
+    try {
+      return await future;
+    } catch (e) {
+      debugPrint('API Call failed, using fallback. Error: $e');
+      return fallback;
+    }
+  }
+
   Future<void> search(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
@@ -219,20 +243,61 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final results = await Future.wait<dynamic>([
-        _apiService.fetchPublicationsPage(
-          query: trimmed,
-          filters: filters,
-          page: 1,
+      final batch1 = await Future.wait<dynamic>([
+        _safe(
+          _apiService.fetchPublicationsPage(
+            query: trimmed,
+            filters: filters,
+            page: 1,
+          ),
+          const PublicationPageResult(
+            totalCount: 0,
+            publications: <PublicationModel>[],
+            page: 1,
+            perPage: 10,
+          ),
         ),
-        _apiService.fetchPublicationTrend(trimmed, filters: filters),
-        _apiService.fetchCitationVelocity(trimmed, filters: filters),
-        _apiService.fetchTopJournals(query: trimmed, filters: filters),
-        _apiService.fetchTopAuthors(query: trimmed, filters: filters),
-        _apiService.fetchTopInstitutions(query: trimmed, filters: filters),
-        _apiService.fetchCountryOutputs(query: trimmed, filters: filters),
-        _apiService.fetchResearchFrontiers(trimmed, filters: filters),
+        _safe(
+          _apiService.fetchPublicationTrend(trimmed, filters: filters),
+          const <String, int>{},
+        ),
       ]);
+      final batch2 = await Future.wait<dynamic>([
+        _safe(
+          _apiService.fetchCitationVelocity(trimmed, filters: filters),
+          const CitationVelocityResult(
+            velocity: <String, int>{},
+            sampleTotalCitations: 0,
+            sampleSize: 0,
+          ),
+        ),
+        _safe(
+          _apiService.fetchTopJournals(query: trimmed, filters: filters),
+          const <JournalModel>[],
+        ),
+      ]);
+      final batch3 = await Future.wait<dynamic>([
+        _safe(
+          _apiService.fetchTopAuthors(query: trimmed, filters: filters),
+          const <AuthorModel>[],
+        ),
+        _safe(
+          _apiService.fetchTopInstitutions(query: trimmed, filters: filters),
+          const <InstitutionModel>[],
+        ),
+      ]);
+      final batch4 = await Future.wait<dynamic>([
+        _safe(
+          _apiService.fetchCountryOutputs(query: trimmed, filters: filters),
+          const <CountryOutput>[],
+        ),
+        _safe(
+          _apiService.fetchResearchFrontiers(trimmed, filters: filters),
+          const <KeywordMetric>[],
+        ),
+      ]);
+
+      final results = [...batch1, ...batch2, ...batch3, ...batch4];
 
       if (generation != _searchGeneration) {
         return;

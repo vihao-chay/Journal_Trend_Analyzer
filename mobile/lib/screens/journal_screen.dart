@@ -132,11 +132,24 @@ class _JournalScreenState extends State<JournalScreen> {
                         ),
                       )
                       .toList(growable: false),
+                  onTap: (index) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => JournalDetailScreen(
+                          journal: journals[index],
+                        ),
+                      ),
+                    );
+                  },
                 ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
+        _JournalList(journals: journals),
+        const SizedBox(height: AppSpacing.large),
+        const Divider(height: 1),
+        const SizedBox(height: AppSpacing.large),
         _PublicationList(
           publications: publications,
           totalCount: publicationTotalCount,
@@ -148,8 +161,6 @@ class _JournalScreenState extends State<JournalScreen> {
             context.read<SearchProvider>().loadJournalPublications(page: page);
           },
         ),
-        const SizedBox(height: AppSpacing.medium),
-        _JournalList(journals: journals),
       ],
     );
   }
