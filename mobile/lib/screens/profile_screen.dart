@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
+import '../models/auth_user.dart';
+import '../providers/auth_provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/app_widgets.dart';
@@ -24,6 +26,7 @@ class ProfileScreen extends StatelessWidget {
       (provider) => provider.globalError,
     );
     final themeProvider = context.watch<ThemeProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return ScreenScroll(
       children: [
@@ -31,6 +34,16 @@ class ProfileScreen extends StatelessWidget {
           title: 'Hồ sơ',
           subtitle: 'Thiết lập trải nghiệm phân tích nghiên cứu.',
           badge: 'Cài đặt',
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        SectionCard(
+          child: _UserAccountCard(
+            user: authProvider.user,
+            isSigningOut: authProvider.isSigningOut,
+            onSignOut: authProvider.isSigningOut
+                ? null
+                : () => _signOut(context),
+          ),
         ),
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
@@ -169,6 +182,21 @@ class ProfileScreen extends StatelessWidget {
         ),
       );
   }
+
+  Future<void> _signOut(BuildContext context) async {
+    final provider = context.read<AuthProvider>();
+    await provider.signOut();
+    if (!context.mounted) {
+      return;
+    }
+
+    final error = provider.errorMessage;
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
 }
 
 class _SettingRow extends StatelessWidget {
@@ -234,6 +262,110 @@ class _SettingRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _UserAccountCard extends StatelessWidget {
+  const _UserAccountCard({
+    required this.user,
+    required this.isSigningOut,
+    required this.onSignOut,
+  });
+
+  final AuthUser? user;
+  final bool isSigningOut;
+  final VoidCallback? onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final currentUser = user;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle(
+          icon: Icons.verified_user_outlined,
+          title: 'Tài khoản Firebase',
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _UserAvatar(user: currentUser),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    currentUser?.nameOrEmail ?? 'Chưa đăng nhập',
+                    style: theme.textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    currentUser?.email ?? 'Firebase Authentication',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onSignOut,
+            icon: isSigningOut
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colors.primary,
+                    ),
+                  )
+                : const Icon(Icons.logout),
+            label: Text(isSigningOut ? 'Đang đăng xuất...' : 'Đăng xuất'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({required this.user});
+
+  final AuthUser? user;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final photoUrl = user?.photoUrl;
+    return CircleAvatar(
+      radius: 32,
+      backgroundColor: colors.primary.withValues(alpha: 0.12),
+      backgroundImage: photoUrl == null || photoUrl.trim().isEmpty
+          ? null
+          : NetworkImage(photoUrl),
+      child: photoUrl == null || photoUrl.trim().isEmpty
+          ? Text(
+              user?.initials ?? 'U',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: colors.primary,
+                fontWeight: FontWeight.w900,
+              ),
+            )
+          : null,
     );
   }
 }

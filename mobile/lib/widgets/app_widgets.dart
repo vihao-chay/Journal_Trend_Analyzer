@@ -1709,14 +1709,6 @@ class HorizontalBarChart extends StatelessWidget {
   }
 }
 
-String _capitalizeAxisLabel(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    return trimmed;
-  }
-  return '${trimmed[0].toUpperCase()}${trimmed.substring(1)}';
-}
-
 class TrendChart extends StatelessWidget {
   const TrendChart({super.key, required this.trend, this.maxPoints = 40});
 

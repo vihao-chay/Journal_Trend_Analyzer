@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
+import 'providers/auth_provider.dart';
 import 'providers/search_provider.dart';
 import 'providers/theme_provider.dart';
+import 'screens/auth_gate.dart';
 import 'screens/home_screen.dart';
 import 'screens/journal_screen.dart';
 import 'screens/keywords_screen.dart';
@@ -11,14 +13,21 @@ import 'screens/profile_screen.dart';
 import 'widgets/app_widgets.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, this.searchProvider, this.themeProvider});
+  const MyApp({
+    super.key,
+    this.searchProvider,
+    this.themeProvider,
+    this.authProvider,
+  });
 
   final SearchProvider? searchProvider;
   final ThemeProvider? themeProvider;
+  final AuthProvider? authProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +37,7 @@ class MyApp extends StatelessWidget {
           create: (_) => searchProvider ?? SearchProvider(),
         ),
         ChangeNotifierProvider(create: (_) => themeProvider ?? ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => authProvider ?? AuthProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(
@@ -36,7 +46,7 @@ class MyApp extends StatelessWidget {
           theme: AppTheme.lightThemeFor(themeProvider.seedColor),
           darkTheme: AppTheme.darkThemeFor(themeProvider.seedColor),
           themeMode: themeProvider.themeMode,
-          home: const ResearchAnalyticsShell(),
+          home: const AuthGate(child: ResearchAnalyticsShell()),
         ),
       ),
     );
