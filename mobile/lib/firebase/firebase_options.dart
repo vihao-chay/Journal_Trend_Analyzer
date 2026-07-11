@@ -4,7 +4,11 @@ import 'package:flutter/foundation.dart';
 class AppFirebaseOptions {
   AppFirebaseOptions._();
 
-  static const webClientId = String.fromEnvironment('FIREBASE_WEB_CLIENT_ID');
+  static const webClientId = String.fromEnvironment(
+    'FIREBASE_WEB_CLIENT_ID',
+    defaultValue:
+        '1077885962572-2ujrlp6mrlrf84dehfbs33gqbbpj1tqf.apps.googleusercontent.com',
+  );
   static const androidClientId = String.fromEnvironment(
     'FIREBASE_ANDROID_CLIENT_ID',
   );
