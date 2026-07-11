@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mobile/main.dart';
 import 'package:mobile/models/analytics_models.dart';
+import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/author_model.dart';
 import 'package:mobile/models/global_overview.dart';
 import 'package:mobile/models/journal_model.dart';
 import 'package:mobile/models/publication_model.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/providers/search_provider.dart';
 import 'package:mobile/providers/theme_provider.dart';
 
@@ -78,6 +80,21 @@ SearchProvider _testSearchProvider() {
 }
 
 void main() {
+  testWidgets('renders login screen when user is not authenticated', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MyApp(
+        searchProvider: SearchProvider(autoLoadGlobalOverview: false),
+        themeProvider: ThemeProvider(autoLoad: false),
+        authProvider: AuthProvider(autoInitialize: false),
+      ),
+    );
+
+    expect(find.text('OpenAlex Research Analytics'), findsOneWidget);
+    expect(find.text('Đăng nhập bằng Google'), findsOneWidget);
+  });
+
   testWidgets('renders search and trend screens on a mobile viewport', (
     tester,
   ) async {
@@ -89,10 +106,19 @@ void main() {
     });
 
     final themeProvider = ThemeProvider(autoLoad: false);
+    final authProvider = AuthProvider(
+      autoInitialize: false,
+      initialUser: const AuthUser(
+        uid: 'test-user',
+        displayName: 'Test Researcher',
+        email: 'researcher@example.com',
+      ),
+    );
     await tester.pumpWidget(
       MyApp(
         searchProvider: _testSearchProvider(),
         themeProvider: themeProvider,
+        authProvider: authProvider,
       ),
     );
 
@@ -118,13 +144,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cài đặt người dùng'), findsOneWidget);
+    expect(find.text('Tài khoản Firebase'), findsOneWidget);
+    expect(find.text('researcher@example.com'), findsOneWidget);
     expect(find.text('Chế độ hiển thị'), findsOneWidget);
     expect(find.text('Màu chủ đạo'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Tối'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Tối'));
     await tester.pumpAndSettle();
     expect(themeProvider.themeMode, ThemeMode.dark);
 
+    await tester.ensureVisible(find.bySemanticsLabel('Xanh ngọc'));
+    await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Xanh ngọc'));
     await tester.pumpAndSettle();
     expect(themeProvider.accent, AppAccent.teal);
