@@ -11,9 +11,19 @@ import 'screens/journal_screen.dart';
 import 'screens/keywords_screen.dart';
 import 'screens/profile_screen.dart';
 import 'widgets/app_widgets.dart';
+import 'services/remote_config_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'providers/dashboard_provider.dart';
+import 'providers/detail_provider.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 1. Khởi tạo Firebase nền tảng (Của Dev 1 cấu hình)
+  await Firebase.initializeApp();
+  
+  // 2. Khởi tạo Remote Config của bạn (Dev 2)
+  final remoteConfigService = RemoteConfigService();
+  await remoteConfigService.initialize();
   runApp(const MyApp());
 }
 
@@ -23,6 +33,7 @@ class MyApp extends StatelessWidget {
     this.searchProvider,
     this.themeProvider,
     this.authProvider,
+    
   });
 
   final SearchProvider? searchProvider;
@@ -38,6 +49,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => themeProvider ?? ThemeProvider()),
         ChangeNotifierProvider(create: (_) => authProvider ?? AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()), // Bộ não thống kê
+        ChangeNotifierProvider(create: (_) => DetailProvider()),    // Bộ xử lý chi tiết & DOI
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(
