@@ -1,215 +1,130 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_theme.dart';
-import '../models/analytics_models.dart';
-import '../models/author_model.dart';
-import '../models/journal_model.dart';
-import '../providers/search_provider.dart';
+import '../viewmodels/keywords_viewmodel.dart';
 import '../widgets/app_widgets.dart';
-import 'detail_screens.dart';
+import 'keyword_detail_screen.dart';
 
 class KeywordsScreen extends StatelessWidget {
   const KeywordsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final hasSearched = context.select<SearchProvider, bool>(
-      (provider) => provider.hasSearched,
-    );
-    final keyword = context.select<SearchProvider, String?>(
-      (provider) => provider.keyword,
-    );
-    final isSearchLoading = context.select<SearchProvider, bool>(
-      (provider) => provider.isSearchLoading,
-    );
-    final overview = context.select<SearchProvider, dynamic>(
-      (provider) => provider.globalOverview,
-    );
-    final searchAuthors = context.select<SearchProvider, List<AuthorModel>>(
-      (provider) => provider.topAuthors,
-    );
-    final searchJournals = context.select<SearchProvider, List<JournalModel>>(
-      (provider) => provider.topJournals,
-    );
-    final searchCitationVelocity =
-        context.select<SearchProvider, Map<String, int>>(
-      (provider) => provider.citationVelocity,
-    );
+    return Consumer<KeywordsViewModel>(
+      builder: (context, viewModel, child) {
+        final keywords = viewModel.topKeywords;
 
-    final authors = hasSearched
-        ? searchAuthors
-        : overview?.topAuthors ?? const <AuthorModel>[];
-    final journals = hasSearched
-        ? searchJournals
-        : overview?.topJournals ?? const <JournalModel>[];
-    final citationVelocity = hasSearched
-        ? searchCitationVelocity
-        : overview?.citationVelocity ?? const <String, int>{};
-
-    return ScreenScroll(
-      onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
-      children: [
-        ScreenHeader(
-          title: 'Từ khóa',
-          subtitle: hasSearched && keyword != null
-              ? 'Phân tích từ khóa cho "$keyword".'
-              : 'Theo dõi xu hướng từ khóa từ OpenAlex.',
-          badge: hasSearched ? 'Đã lọc' : 'Xu hướng',
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        const SearchContextBanner(),
-        if (isSearchLoading && hasSearched) ...[
-          const SizedBox(height: AppSpacing.medium),
-          const LinearProgressIndicator(minHeight: 5),
-        ],
-        const SizedBox(height: AppSpacing.medium),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionTitle(
-                icon: Icons.show_chart,
-                title: 'Tốc độ tăng trích dẫn theo chủ đề',
-              ),
-              const SizedBox(height: 14),
-              SizedBox(height: 260, child: LineChart(series: citationVelocity)),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionTitle(
-                icon: Icons.scatter_plot,
-                title: 'Tác giả có trích dẫn cao nhất',
-              ),
-              const SizedBox(height: 14),
-              ScatterPlot(points: _authorScatterPoints(authors)),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        _AuthorsAndJournals(authors: authors, journals: journals),
-      ],
-    );
-  }
-
-  List<ScatterPointData> _authorScatterPoints(List<AuthorModel> authors) {
-    return authors
-        .take(10)
-        .map(
-          (author) => ScatterPointData(
-            label: author.displayName,
-            x: author.worksCount.toDouble(),
-            y: (author.citedByCount > 0
-                    ? author.citedByCount
-                    : author.worksCount * 12)
-                .toDouble(),
-            size: author.worksCount.toDouble(),
-          ),
-        )
-        .toList(growable: false);
-  }
-}
-
-class _AuthorsAndJournals extends StatelessWidget {
-  const _AuthorsAndJournals({required this.authors, required this.journals});
-
-  final List<AuthorModel> authors;
-  final List<JournalModel> journals;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 780;
-        final authorCard = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return ScreenScroll(
+          onRefresh: () async {
+            // Parent handles fetching, we assume data is pushed to ViewModel
+          },
           children: [
-            const SectionTitle(
-              icon: Icons.person_outline,
-              title: 'Tác giả hàng đầu',
+            const ScreenHeader(
+              title: 'Từ khóa',
+              subtitle: 'Phân tích từ khóa',
+              badge: 'Xu hướng',
             ),
-            const SizedBox(height: 14),
-            if (authors.isEmpty)
-              const AppEmptyState(
-                icon: Icons.person_search,
-                title: 'Chưa có tác giả',
-                message:
-                    'Dữ liệu tác giả sẽ xuất hiện sau khi tìm kiếm ở Trang chủ.',
-              )
-            else
-              for (var index = 0; index < authors.take(5).length; index++) ...[
-                AuthorCard(
-                  author: authors[index],
-                  rank: index + 1,
-                  onTap: () {
-                    final url = Uri.parse('https://openalex.org/${authors[index].id}');
-                    launchUrl(url);
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
-          ],
-        );
+            const SizedBox(height: AppSpacing.medium),
 
-        final journalCard = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SectionTitle(
-              icon: Icons.library_books_outlined,
-              title: 'Tạp chí hàng đầu',
-            ),
-            const SizedBox(height: 14),
-            if (journals.isEmpty)
-              const AppEmptyState(
-                icon: Icons.library_books_outlined,
-                title: 'Chưa có tạp chí',
-                message:
-                    'Dữ liệu tạp chí sẽ xuất hiện sau khi tìm kiếm ở Trang chủ.',
+            if (viewModel.isLoading)
+              const SizedBox(
+                height: 120,
+                child: AppLoadingState(message: 'Đang xử lý dữ liệu từ khóa...'),
               )
-            else
-              for (var index = 0; index < journals.take(5).length; index++) ...[
-                JournalCard(
-                  journal: journals[index],
-                  rank: index + 1,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            JournalDetailScreen(journal: journals[index]),
-                      ),
-                    );
-                  },
+            else if (viewModel.error != null)
+              AppErrorState(message: viewModel.error!)
+            else if (keywords.isEmpty)
+              const AppEmptyState(
+                icon: Icons.tag,
+                title: 'Chưa có từ khóa',
+                message: 'Không có dữ liệu từ khóa để hiển thị.',
+              )
+            else ...[
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionTitle(
+                      icon: Icons.tag,
+                      title: 'Từ khóa phổ biến nhất',
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: keywords.take(20).map((k) {
+                        return ActionChip(
+                          label: Text('${k.keyword} (${k.count})'),
+                          backgroundColor: AppColors.primary.withOpacity(0.1),
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => KeywordDetailScreen(keywordData: k),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-              ],
-          ],
-        );
-
-        if (!wide) {
-          return Column(
-            children: [
-              authorCard,
+              ),
               const SizedBox(height: AppSpacing.medium),
-              journalCard,
+              _KeywordList(keywords: keywords),
             ],
-          );
-        }
-
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: authorCard),
-            const SizedBox(width: AppSpacing.medium),
-            Expanded(child: journalCard),
           ],
         );
       },
+    );
+  }
+}
+
+class _KeywordList extends StatelessWidget {
+  const _KeywordList({required this.keywords});
+
+  final List<KeywordData> keywords;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle(
+          icon: Icons.list,
+          title: 'Tất cả từ khóa',
+        ),
+        const SizedBox(height: 14),
+        for (var index = 0; index < keywords.length; index++) ...[
+          Card(
+            margin: EdgeInsets.zero,
+            elevation: 1,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              leading: const CircleAvatar(
+                backgroundColor: AppColors.secondary,
+                child: Icon(Icons.tag, color: Colors.white, size: 18),
+              ),
+              title: Text(
+                keywords[index].keyword, 
+                style: const TextStyle(fontWeight: FontWeight.bold)
+              ),
+              subtitle: Text(
+                'Bài báo: ${keywords[index].count} | Trích dẫn: ${keywords[index].totalCitations}'
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => KeywordDetailScreen(keywordData: keywords[index]),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 }

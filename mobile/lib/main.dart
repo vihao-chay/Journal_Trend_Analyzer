@@ -15,11 +15,16 @@ import 'services/remote_config_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/detail_provider.dart';
+import 'firebase/firebase_options.dart';
+import 'viewmodels/journals_viewmodel.dart';
+import 'viewmodels/keywords_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 1. Khởi tạo Firebase nền tảng (Của Dev 1 cấu hình)
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: AppFirebaseOptions.currentPlatform,
+  );
   
   // 2. Khởi tạo Remote Config của bạn (Dev 2)
   final remoteConfigService = RemoteConfigService();
@@ -51,6 +56,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => authProvider ?? AuthProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()), // Bộ não thống kê
         ChangeNotifierProvider(create: (_) => DetailProvider()),    // Bộ xử lý chi tiết & DOI
+        ChangeNotifierProvider(create: (_) => JournalsViewModel()),
+        ChangeNotifierProvider(create: (_) => KeywordsViewModel()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(

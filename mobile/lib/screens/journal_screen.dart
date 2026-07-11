@@ -1,325 +1,142 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
-import '../models/analytics_models.dart';
 import '../models/journal_model.dart';
-import '../models/publication_model.dart';
-import '../providers/search_provider.dart';
-import '../services/api_service.dart';
+import '../viewmodels/journals_viewmodel.dart';
 import '../widgets/app_widgets.dart';
 import 'detail_screens.dart';
 
-class JournalScreen extends StatefulWidget {
+class JournalScreen extends StatelessWidget {
   const JournalScreen({super.key});
 
   @override
-  State<JournalScreen> createState() => _JournalScreenState();
-}
-
-class _JournalScreenState extends State<JournalScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      final provider = context.read<SearchProvider>();
-      if (provider.journalPagePublications.isEmpty &&
-          !provider.isJournalPublicationsLoading) {
-        provider.loadJournalPublications(page: 1);
-      }
-    });
-  }
-
-  Future<void> _refreshJournalData() async {
-    final provider = context.read<SearchProvider>();
-    await Future.wait<void>([
-      provider.loadGlobalOverview(),
-      provider.loadJournalPublications(page: provider.journalPublicationPage),
-    ]);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final hasSearched = context.select<SearchProvider, bool>(
-      (provider) => provider.hasSearched,
-    );
-    final keyword = context.select<SearchProvider, String?>(
-      (provider) => provider.keyword,
-    );
-    final isSearchLoading = context.select<SearchProvider, bool>(
-      (provider) => provider.isSearchLoading,
-    );
-    final isJournalPublicationsLoading =
-        context.select<SearchProvider, bool>(
-      (provider) => provider.isJournalPublicationsLoading,
-    );
-    final searchError = context.select<SearchProvider, String?>(
-      (provider) => provider.searchError,
-    );
-    final journalPublicationsError =
-        context.select<SearchProvider, String?>(
-      (provider) => provider.journalPublicationsError,
-    );
-    final overview = context.select<SearchProvider, dynamic>(
-      (provider) => provider.globalOverview,
-    );
-    final searchJournals = context.select<SearchProvider, List<JournalModel>>(
-      (provider) => provider.topJournals,
-    );
-    final publications =
-        context.select<SearchProvider, List<PublicationModel>>(
-      (provider) => provider.journalPagePublications,
-    );
-    final publicationTotalCount = context.select<SearchProvider, int>(
-      (provider) => provider.publicationTotalCount,
-    );
-    final journalPublicationPage = context.select<SearchProvider, int>(
-      (provider) => provider.journalPublicationPage,
-    );
-    final journalPublicationTotalPages =
-        context.select<SearchProvider, int>(
-      (provider) => provider.journalPublicationTotalPages,
-    );
+    return Consumer<JournalsViewModel>(
+      builder: (context, viewModel, child) {
+        final journals = viewModel.topJournals;
 
-    final journals = hasSearched
-        ? searchJournals
-        : overview?.topJournals ?? const <JournalModel>[];
-    final subtitle = hasSearched && keyword != null
-        ? 'Tạp chí cho "$keyword"'
-        : 'Tạp chí nổi bật trên OpenAlex';
-    final isPublicationListLoading =
-        isJournalPublicationsLoading || (isSearchLoading && hasSearched);
-    final publicationListError = hasSearched ? searchError : journalPublicationsError;
-
-    return ScreenScroll(
-      onRefresh: _refreshJournalData,
-      children: [
-        ScreenHeader(
-          title: 'Tạp chí',
-          subtitle: subtitle,
-          badge: hasSearched ? 'Đã lọc' : 'Toàn cục',
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        const SearchContextBanner(),
-        const SizedBox(height: AppSpacing.medium),
-        SectionCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SectionTitle(
-                icon: Icons.bar_chart,
-                title: 'Xếp hạng tạp chí theo số bài',
-              ),
-              const SizedBox(height: 14),
-              if (isSearchLoading && hasSearched)
-                const SizedBox(
-                  height: 120,
-                  child: AppLoadingState(message: 'Đang tải tạp chí...'),
-                )
-              else if (searchError != null && hasSearched)
-                AppErrorState(message: searchError)
-              else
-                HorizontalBarChart(
-                  data: journals
-                      .take(8)
-                      .map<ChartBarData>(
-                        (journal) => ChartBarData(
-                          label: journal.displayName,
-                          value: journal.worksCount,
-                        ),
-                      )
-                      .toList(growable: false),
-                  onTap: (index) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => JournalDetailScreen(
-                          journal: journals[index],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpacing.medium),
-        _JournalList(journals: journals),
-        const SizedBox(height: AppSpacing.large),
-        const Divider(height: 1),
-        const SizedBox(height: AppSpacing.large),
-        _PublicationList(
-          publications: publications,
-          totalCount: publicationTotalCount,
-          currentPage: journalPublicationPage,
-          totalPages: journalPublicationTotalPages,
-          isLoading: isPublicationListLoading,
-          error: publicationListError,
-          onPageSelected: (page) {
-            context.read<SearchProvider>().loadJournalPublications(page: page);
+        return ScreenScroll(
+          onRefresh: () async {
+            // Depending on the app flow, Dev 1/4 handles data fetching.
+            // Assuming this triggers a refresh at the parent level.
           },
-        ),
-      ],
+          children: [
+            const ScreenHeader(
+              title: 'Tạp chí',
+              subtitle: 'Tạp chí nổi bật',
+              badge: 'Toàn cục',
+            ),
+            const SizedBox(height: AppSpacing.medium),
+            
+            if (viewModel.isLoading)
+              const SizedBox(
+                height: 120,
+                child: AppLoadingState(message: 'Đang xử lý dữ liệu tạp chí...'),
+              )
+            else if (viewModel.error != null)
+              AppErrorState(message: viewModel.error!)
+            else if (journals.isEmpty)
+              const AppEmptyState(
+                icon: Icons.library_books_outlined,
+                title: 'Chưa có tạp chí',
+                message: 'Không có dữ liệu tạp chí để hiển thị.',
+              )
+            else ...[
+              SectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SectionTitle(
+                      icon: Icons.bar_chart,
+                      title: 'Xếp hạng tạp chí theo số bài (Top 8)',
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 300,
+                      child: _buildBarChart(journals.take(8).toList()),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.medium),
+              _JournalList(journals: journals),
+            ],
+          ],
+        );
+      },
     );
   }
-}
 
-class _PublicationList extends StatelessWidget {
-  const _PublicationList({
-    required this.publications,
-    required this.totalCount,
-    required this.currentPage,
-    required this.totalPages,
-    required this.isLoading,
-    required this.error,
-    required this.onPageSelected,
-  });
+  Widget _buildBarChart(List<JournalModel> journals) {
+    final maxY = journals.isNotEmpty ? journals.first.worksCount.toDouble() * 1.2 : 10.0;
 
-  final List<PublicationModel> publications;
-  final int totalCount;
-  final int currentPage;
-  final int totalPages;
-  final bool isLoading;
-  final String? error;
-  final ValueChanged<int> onPageSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionTitle(
-          icon: Icons.article_outlined,
-          title: 'Danh sách bài báo',
-        ),
-        if (totalCount > 0) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              const MetricPill(
-                label: 'Mới → cũ',
-                icon: Icons.sort,
-                accentColor: AppColors.chartLine,
-              ),
-              MetricPill(
-                label: 'Tổng $totalCount bài',
-                icon: Icons.library_books_outlined,
-                accentColor: AppColors.secondary,
-              ),
-              if (totalPages > 0)
-                MetricPill(
-                  label:
-                      'Trang $currentPage / $totalPages (${ApiService.defaultPublicationPageSize}/trang)',
-                  icon: Icons.layers_outlined,
-                  accentColor: AppColors.primary,
-                ),
-            ],
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
+        barTouchData: BarTouchData(enabled: true),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                if (value.toInt() >= 0 && value.toInt() < journals.length) {
+                  String name = journals[value.toInt()].displayName;
+                  if (name.length > 12) {
+                    name = '${name.substring(0, 10)}...';
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      name,
+                      style: const TextStyle(fontSize: 10),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }
+                return const Text('');
+              },
+              reservedSize: 42,
+            ),
           ),
-        ],
-        const SizedBox(height: 14),
-        if (isLoading)
-          const SizedBox(
-            height: 160,
-            child: AppLoadingState(message: 'Đang tải bài báo...'),
-          )
-        else if (error != null)
-          AppErrorState(message: error!)
-        else if (publications.isEmpty)
-          const AppEmptyState(
-            icon: Icons.article_outlined,
-            title: 'Chưa có bài báo',
-            message: 'Hãy tìm một chủ đề ở Trang chủ để xem danh sách bài báo.',
-          )
-        else ...[
-          for (final publication in publications) ...[
-            PaperCard(
-              publication: publication,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        PublicationDetailScreen(publication: publication),
-                  ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 40,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  value.toInt().toString(),
+                  style: const TextStyle(fontSize: 10),
                 );
               },
             ),
-            const SizedBox(height: 12),
-          ],
-          if (totalPages > 1) ...[
-            const SizedBox(height: 4),
-            _PublicationPaginationBar(
-              currentPage: currentPage,
-              totalPages: totalPages,
-              onPrevious: currentPage > 1
-                  ? () => onPageSelected(currentPage - 1)
-                  : null,
-              onNext: currentPage < totalPages
-                  ? () => onPageSelected(currentPage + 1)
-                  : null,
-            ),
-          ],
-        ],
-      ],
-    );
-  }
-}
-
-class _PublicationPaginationBar extends StatelessWidget {
-  const _PublicationPaginationBar({
-    required this.currentPage,
-    required this.totalPages,
-    required this.onPrevious,
-    required this.onNext,
-  });
-
-  final int currentPage;
-  final int totalPages;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          OutlinedButton.icon(
-            onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left, size: 20),
-            label: const Text('Trước'),
           ),
-          Expanded(
-            child: Text(
-              'Trang $currentPage / $totalPages',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-            ),
-          ),
-          OutlinedButton(
-            onPressed: onNext,
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Sau'),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 20),
-              ],
-            ),
-          ),
-        ],
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        gridData: const FlGridData(show: true, drawVerticalLine: false),
+        borderData: FlBorderData(show: false),
+        barGroups: journals.asMap().entries.map((entry) {
+          final index = entry.key;
+          final journal = entry.value;
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: journal.worksCount.toDouble(),
+                color: AppColors.primary,
+                width: 16,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  topRight: Radius.circular(4),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -337,31 +154,23 @@ class _JournalList extends StatelessWidget {
       children: [
         const SectionTitle(
           icon: Icons.library_books_outlined,
-          title: 'Hồ sơ tạp chí',
+          title: 'Tất cả tạp chí',
         ),
         const SizedBox(height: 14),
-        if (journals.isEmpty)
-          const AppEmptyState(
-            icon: Icons.library_books_outlined,
-            title: 'Chưa có tạp chí',
-            message: 'Dữ liệu tạp chí sẽ xuất hiện sau khi tải OpenAlex.',
-          )
-        else
-          for (var index = 0; index < journals.take(10).length; index++) ...[
-            JournalCard(
-              journal: journals[index],
-              rank: index + 1,
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        JournalDetailScreen(journal: journals[index]),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
+        for (var index = 0; index < journals.length; index++) ...[
+          JournalCard(
+            journal: journals[index],
+            rank: index + 1,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => JournalDetailScreen(journal: journals[index]),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
       ],
     );
   }

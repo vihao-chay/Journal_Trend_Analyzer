@@ -7,6 +7,7 @@ import '../models/publication_model.dart';
 import '../services/api_service.dart';
 import '../services/publication_analytics.dart';
 import '../widgets/app_widgets.dart';
+import '../firebase/analytics_helper.dart';
 
 class PublicationDetailScreen extends StatelessWidget {
   const PublicationDetailScreen({super.key, required this.publication});
@@ -164,6 +165,7 @@ class _JournalDetailScreenState extends State<JournalDetailScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsHelper.logViewJournal(widget.journal.displayName);
     _future = _api.fetchWorksBySourceId(widget.journal.id);
   }
 
@@ -210,13 +212,21 @@ class _JournalDetailScreenState extends State<JournalDetailScreen> {
                           '${formatCompactNumber(widget.journal.worksCount)} bài',
                       icon: Icons.article_outlined,
                     ),
-                    if (widget.journal.citedByCount > 0)
+                    if (widget.journal.citedByCount > 0) ...[
                       MetricPill(
                         label:
                             '${formatCompactNumber(widget.journal.citedByCount)} trích dẫn',
                         icon: Icons.format_quote,
                         accentColor: AppColors.accent,
                       ),
+                      if (widget.journal.worksCount > 0)
+                        MetricPill(
+                          label:
+                              '${(widget.journal.citedByCount / widget.journal.worksCount).toStringAsFixed(1)} trích dẫn/bài',
+                          icon: Icons.functions,
+                          accentColor: AppColors.primary,
+                        ),
+                    ],
                   ],
                 ),
               ],
