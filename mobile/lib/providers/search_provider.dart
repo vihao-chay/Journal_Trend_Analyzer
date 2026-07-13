@@ -45,6 +45,7 @@ class SearchProvider extends ChangeNotifier {
   List<InstitutionModel> topInstitutions = const [];
   List<CountryOutput> countryOutputs = const [];
   List<KeywordMetric> keywordFrontiers = const [];
+  PublicationModel? mostInfluentialPublication;
 
   bool isSearchLoading = false;
   String? searchError;
@@ -185,7 +186,10 @@ class SearchProvider extends ChangeNotifier {
       final batch4 = await Future.wait<dynamic>([
         _safe(_apiService.fetchCountryOutputs(), const <CountryOutput>[]),
         _safe(_apiService.fetchTrendingKeywords(), const <KeywordMetric>[]),
-        _safe(_apiService.fetchFeaturedPublications(), const <PublicationModel>[]),
+        _safe(
+          _apiService.fetchFeaturedPublications(),
+          const <PublicationModel>[],
+        ),
       ]);
 
       final results = [...batch1, ...batch2, ...batch3, ...batch4];
@@ -295,6 +299,10 @@ class SearchProvider extends ChangeNotifier {
           _apiService.fetchResearchFrontiers(trimmed, filters: filters),
           const <KeywordMetric>[],
         ),
+        _safe<PublicationModel?>(
+          _apiService.fetchMostCitedWork(query: trimmed, filters: filters),
+          null,
+        ),
       ]);
 
       final results = [...batch1, ...batch2, ...batch3, ...batch4];
@@ -320,6 +328,7 @@ class SearchProvider extends ChangeNotifier {
       topInstitutions = results[5] as List<InstitutionModel>;
       countryOutputs = results[6] as List<CountryOutput>;
       keywordFrontiers = results[7] as List<KeywordMetric>;
+      mostInfluentialPublication = results[8] as PublicationModel?;
       searchError = null;
 
       await _recordRecentSearch(trimmed);
@@ -381,6 +390,7 @@ class SearchProvider extends ChangeNotifier {
     topInstitutions = const [];
     countryOutputs = const [];
     keywordFrontiers = const [];
+    mostInfluentialPublication = null;
   }
 
   @override

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_theme.dart';
+import '../models/app_notification.dart';
 import '../models/auth_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/search_provider.dart';
 import '../providers/theme_provider.dart';
+import '../viewmodels/firebase_features_view_model.dart';
 import '../widgets/app_widgets.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -27,6 +31,7 @@ class ProfileScreen extends StatelessWidget {
     );
     final themeProvider = context.watch<ThemeProvider>();
     final authProvider = context.watch<AuthProvider>();
+    final firebaseFeatures = context.watch<FirebaseFeaturesViewModel>();
 
     return ScreenScroll(
       children: [
@@ -44,6 +49,19 @@ class ProfileScreen extends StatelessWidget {
                 ? null
                 : () => _signOut(context),
           ),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _FirebaseStatusCard(firebaseFeatures: firebaseFeatures),
+        const SizedBox(height: AppSpacing.medium),
+        _RemoteConfigCard(firebaseFeatures: firebaseFeatures),
+        const SizedBox(height: AppSpacing.medium),
+        _NotificationCenterCard(firebaseFeatures: firebaseFeatures),
+        const SizedBox(height: AppSpacing.medium),
+        _FirebaseActionsCard(
+          firebaseFeatures: firebaseFeatures,
+          onExportPdf: () => _exportPdf(context),
+          onRecordHandledException: () => _recordHandledException(context),
+          onForceCrash: firebaseFeatures.forceTestCrash,
         ),
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
@@ -185,6 +203,8 @@ class ProfileScreen extends StatelessWidget {
 
   Future<void> _signOut(BuildContext context) async {
     final provider = context.read<AuthProvider>();
+    final firebaseFeatures = context.read<FirebaseFeaturesViewModel>();
+    await firebaseFeatures.trackLogout();
     await provider.signOut();
     if (!context.mounted) {
       return;
@@ -196,6 +216,462 @@ class ProfileScreen extends StatelessWidget {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text(error)));
     }
+  }
+
+  Future<void> _exportPdf(BuildContext context) async {
+    final searchProvider = context.read<SearchProvider>();
+    final firebaseFeatures = context.read<FirebaseFeaturesViewModel>();
+    final data = DashboardReportData(
+      topic: searchProvider.keyword ?? 'OpenAlex overview',
+      totalPublications: searchProvider.hasSearched
+          ? searchProvider.publicationTotalCount
+          : searchProvider.globalOverview?.totalWorks ?? 0,
+      averageCitations: searchProvider.searchAverageCitations,
+      topJournals:
+          (searchProvider.hasSearched
+                  ? searchProvider.topJournals
+                  : searchProvider.globalOverview?.topJournals ?? const [])
+              .map((journal) => journal.displayName)
+              .toList(growable: false),
+      topKeywords:
+          (searchProvider.hasSearched
+                  ? searchProvider.keywordFrontiers
+                  : searchProvider.globalOverview?.trendingKeywords ?? const [])
+              .map((keyword) => keyword.displayName)
+              .toList(growable: false),
+      recentSearches: searchProvider.recentSearches,
+    );
+
+    final url = await firebaseFeatures.exportReportPdf(data);
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            url == null
+                ? firebaseFeatures.errorMessage ?? 'Xuất PDF thất bại.'
+                : 'Đã xuất PDF và upload lên Firebase Storage.',
+          ),
+        ),
+      );
+  }
+
+  Future<void> _recordHandledException(BuildContext context) async {
+    await context.read<FirebaseFeaturesViewModel>().recordHandledException();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Đã gửi non-fatal exception lên Crashlytics.'),
+        ),
+      );
+  }
+}
+
+class _FirebaseStatusCard extends StatelessWidget {
+  const _FirebaseStatusCard({required this.firebaseFeatures});
+
+  final FirebaseFeaturesViewModel firebaseFeatures;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final token = firebaseFeatures.fcmToken;
+    return SectionCard(
+      key: const ValueKey('profile_firebase_status_card'),
+      accentColor: firebaseFeatures.isFirebaseAvailable
+          ? AppColors.secondary
+          : AppColors.error,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.cloud_done_outlined,
+            title: 'Firebase Lab 03',
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              MetricPill(
+                label: firebaseFeatures.isFirebaseAvailable
+                    ? 'Firebase sẵn sàng'
+                    : 'Firebase chưa sẵn sàng',
+                icon: firebaseFeatures.isFirebaseAvailable
+                    ? Icons.check_circle_outline
+                    : Icons.warning_amber_outlined,
+                accentColor: firebaseFeatures.isFirebaseAvailable
+                    ? AppColors.secondary
+                    : AppColors.error,
+              ),
+              MetricPill(
+                label:
+                    '${firebaseFeatures.unreadNotificationCount} thông báo mới',
+                icon: Icons.notifications_outlined,
+                accentColor: AppColors.chartLine,
+              ),
+              if (firebaseFeatures.notificationPermissionLabel != null)
+                MetricPill(
+                  label: 'FCM: ${firebaseFeatures.notificationPermissionLabel}',
+                  icon: Icons.mark_email_read_outlined,
+                  accentColor: AppColors.accent,
+                ),
+            ],
+          ),
+          if (firebaseFeatures.errorMessage != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              firebaseFeatures.errorMessage!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (token != null && token.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surfaceContainerHighest.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(AppRadius.small),
+                border: Border.all(color: colors.outlineVariant),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'FCM token',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        TextButton.icon(
+                          key: const ValueKey('profile_copy_fcm_token_button'),
+                          onPressed: () async {
+                            await Clipboard.setData(ClipboardData(text: token));
+                            if (!context.mounted) {
+                              return;
+                            }
+                            ScaffoldMessenger.of(context)
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(
+                                const SnackBar(
+                                  content: Text('Đã copy FCM token.'),
+                                ),
+                              );
+                          },
+                          icon: const Icon(Icons.copy, size: 16),
+                          label: const Text('Copy'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    SelectableText(
+                      token,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RemoteConfigCard extends StatelessWidget {
+  const _RemoteConfigCard({required this.firebaseFeatures});
+
+  final FirebaseFeaturesViewModel firebaseFeatures;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      key: const ValueKey('profile_remote_config_card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(icon: Icons.tune, title: 'Remote Config'),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              MetricPill(
+                label: 'max_journals = ${firebaseFeatures.maxJournals}',
+                icon: Icons.library_books_outlined,
+              ),
+              MetricPill(
+                label: 'max_keywords = ${firebaseFeatures.maxKeywords}',
+                icon: Icons.tag_outlined,
+                accentColor: AppColors.chartLine,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('profile_refresh_remote_config_button'),
+              onPressed: firebaseFeatures.isRemoteConfigLoading
+                  ? null
+                  : () {
+                      firebaseFeatures.refreshRemoteConfig();
+                    },
+              icon: firebaseFeatures.isRemoteConfigLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: const Text('Tải lại Remote Config'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationCenterCard extends StatelessWidget {
+  const _NotificationCenterCard({required this.firebaseFeatures});
+
+  final FirebaseFeaturesViewModel firebaseFeatures;
+
+  @override
+  Widget build(BuildContext context) {
+    final notifications = firebaseFeatures.notifications;
+    return SectionCard(
+      key: const ValueKey('profile_notifications_section'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.notifications_active_outlined,
+            title: 'Notification Center',
+          ),
+          const SizedBox(height: 14),
+          if (notifications.isEmpty)
+            const AppEmptyState(
+              icon: Icons.notifications_none,
+              title: 'Chưa có thông báo',
+              message:
+                  'Thông báo FCM foreground/background sẽ được lưu tại đây.',
+            )
+          else
+            for (final notification in notifications.take(5)) ...[
+              _NotificationTile(
+                notification: notification,
+                onTap: () =>
+                    firebaseFeatures.markNotificationRead(notification.id),
+              ),
+              const Divider(height: 18),
+            ],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const ValueKey('profile_mark_notifications_read_button'),
+                  onPressed: notifications.isEmpty
+                      ? null
+                      : firebaseFeatures.markAllNotificationsRead,
+                  icon: const Icon(Icons.done_all),
+                  label: const Text('Đánh dấu đã đọc'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.outlined(
+                key: const ValueKey('profile_clear_notifications_button'),
+                onPressed: notifications.isEmpty
+                    ? null
+                    : firebaseFeatures.clearNotifications,
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Xóa thông báo',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  const _NotificationTile({required this.notification, required this.onTap});
+
+  final AppNotification notification;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.small),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              notification.isRead
+                  ? Icons.notifications_none
+                  : Icons.notifications_active,
+              color: notification.isRead
+                  ? colors.onSurfaceVariant
+                  : colors.primary,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: notification.isRead
+                          ? FontWeight.w600
+                          : FontWeight.w900,
+                    ),
+                  ),
+                  if (notification.body.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      notification.body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Text(
+                    '${notification.source.name} • ${notification.receivedAt.toLocal()}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FirebaseActionsCard extends StatelessWidget {
+  const _FirebaseActionsCard({
+    required this.firebaseFeatures,
+    required this.onExportPdf,
+    required this.onRecordHandledException,
+    required this.onForceCrash,
+  });
+
+  final FirebaseFeaturesViewModel firebaseFeatures;
+  final VoidCallback onExportPdf;
+  final VoidCallback onRecordHandledException;
+  final Future<void> Function() onForceCrash;
+
+  @override
+  Widget build(BuildContext context) {
+    final exportUrl = firebaseFeatures.lastExportedUrl;
+    return SectionCard(
+      key: const ValueKey('profile_firebase_actions_card'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.picture_as_pdf_outlined,
+            title: 'Storage PDF & Crashlytics',
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('profile_export_pdf_button'),
+              onPressed: firebaseFeatures.isExporting ? null : onExportPdf,
+              icon: firebaseFeatures.isExporting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.upload_file),
+              label: Text(
+                firebaseFeatures.isExporting
+                    ? 'Đang xuất PDF...'
+                    : 'Xuất PDF và upload Storage',
+              ),
+            ),
+          ),
+          if (exportUrl != null && exportUrl.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              key: const ValueKey('profile_open_exported_pdf_button'),
+              onPressed: () {
+                final uri = Uri.tryParse(exportUrl);
+                if (uri != null && uri.hasScheme) {
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Mở PDF đã upload'),
+            ),
+          ],
+          const Divider(height: 26),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const ValueKey('profile_test_crashlytics_button'),
+                  onPressed: onRecordHandledException,
+                  icon: const Icon(Icons.bug_report_outlined),
+                  label: const Text('Gửi non-fatal'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const ValueKey('profile_force_crash_button'),
+                  onPressed: () {
+                    onForceCrash();
+                  },
+                  icon: const Icon(Icons.warning_amber_outlined),
+                  label: const Text('Test crash'),
+                ),
+              ),
+            ],
+          ),
+          if (firebaseFeatures.lastPdfPath != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'PDF local: ${firebaseFeatures.lastPdfPath}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 

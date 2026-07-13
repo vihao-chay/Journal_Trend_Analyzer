@@ -8,6 +8,7 @@ class PublicationModel {
     required this.journalName,
     required this.authors,
     this.abstractText,
+    this.landingPageUrl,
   });
 
   final String id;
@@ -18,12 +19,12 @@ class PublicationModel {
   final String journalName;
   final List<String> authors;
   final String? abstractText;
+  final String? landingPageUrl;
 
   /// Human-readable year label; invalid or missing years show [unknownYearLabel].
-  String get displayYear =>
-      isPlausiblePublicationYear(publicationYear)
-          ? publicationYear.toString()
-          : unknownYearLabel;
+  String get displayYear => isPlausiblePublicationYear(publicationYear)
+      ? publicationYear.toString()
+      : unknownYearLabel;
 
   static const unknownYearLabel = 'Chưa rõ';
 
@@ -44,7 +45,10 @@ class PublicationModel {
       doi: _asNonEmptyString(json['doi']),
       journalName: _extractJournalName(json),
       authors: _extractAuthors(json),
-      abstractText: decodeAbstractInvertedIndex(json['abstract_inverted_index']),
+      abstractText: decodeAbstractInvertedIndex(
+        json['abstract_inverted_index'],
+      ),
+      landingPageUrl: _extractLandingPageUrl(json),
     );
   }
 
@@ -118,6 +122,7 @@ class PublicationModel {
       'journal_name': journalName,
       'authors': List<String>.from(authors),
       'abstract': abstractText,
+      'landing_page_url': landingPageUrl,
     };
   }
 
@@ -126,6 +131,11 @@ class PublicationModel {
     final source = _asMap(primaryLocation?['source']);
 
     return _asNonEmptyString(source?['display_name']) ?? 'Unknown Journal';
+  }
+
+  static String? _extractLandingPageUrl(Map<String, dynamic> json) {
+    final primaryLocation = _asMap(json['primary_location']);
+    return _asNonEmptyString(primaryLocation?['landing_page_url']);
   }
 
   static List<String> _extractAuthors(Map<String, dynamic> json) {

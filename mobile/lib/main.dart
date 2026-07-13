@@ -10,10 +10,13 @@ import 'screens/home_screen.dart';
 import 'screens/journal_screen.dart';
 import 'screens/keywords_screen.dart';
 import 'screens/profile_screen.dart';
+import 'firebase/firebase_bootstrap.dart';
+import 'viewmodels/firebase_features_view_model.dart';
 import 'widgets/app_widgets.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await FirebaseBootstrap.initialize();
   runApp(const MyApp());
 }
 
@@ -23,11 +26,13 @@ class MyApp extends StatelessWidget {
     this.searchProvider,
     this.themeProvider,
     this.authProvider,
+    this.firebaseFeaturesProvider,
   });
 
   final SearchProvider? searchProvider;
   final ThemeProvider? themeProvider;
   final AuthProvider? authProvider;
+  final FirebaseFeaturesViewModel? firebaseFeaturesProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +43,10 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => themeProvider ?? ThemeProvider()),
         ChangeNotifierProvider(create: (_) => authProvider ?? AuthProvider()),
+        ChangeNotifierProvider(
+          create: (_) =>
+              firebaseFeaturesProvider ?? FirebaseFeaturesViewModel(),
+        ),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) => MaterialApp(

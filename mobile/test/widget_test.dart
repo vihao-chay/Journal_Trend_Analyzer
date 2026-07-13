@@ -11,6 +11,7 @@ import 'package:mobile/models/publication_model.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/providers/search_provider.dart';
 import 'package:mobile/providers/theme_provider.dart';
+import 'package:mobile/viewmodels/firebase_features_view_model.dart';
 
 SearchProvider _testSearchProvider() {
   return SearchProvider(autoLoadGlobalOverview: false)
@@ -88,6 +89,9 @@ void main() {
         searchProvider: SearchProvider(autoLoadGlobalOverview: false),
         themeProvider: ThemeProvider(autoLoad: false),
         authProvider: AuthProvider(autoInitialize: false),
+        firebaseFeaturesProvider: FirebaseFeaturesViewModel(
+          autoInitialize: false,
+        ),
       ),
     );
 
@@ -119,6 +123,9 @@ void main() {
         searchProvider: _testSearchProvider(),
         themeProvider: themeProvider,
         authProvider: authProvider,
+        firebaseFeaturesProvider: FirebaseFeaturesViewModel(
+          autoInitialize: false,
+        ),
       ),
     );
 
