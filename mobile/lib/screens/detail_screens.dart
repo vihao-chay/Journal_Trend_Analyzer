@@ -35,6 +35,7 @@ class _PublicationDetailScreenState extends State<PublicationDetailScreen> {
       context.read<FirebaseFeaturesViewModel>().trackViewPublication(
         publicationId: publication.id,
         title: publication.title,
+        publicationYear: publication.publicationYear,
       );
     });
   }

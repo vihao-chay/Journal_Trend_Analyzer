@@ -32,4 +32,15 @@ void main() {
     expect(find.byIcon(Icons.logout), findsOneWidget);
     expect(find.byIcon(Icons.dark_mode_outlined), findsOneWidget);
   });
+
+  patrolTest('performs logout and returns to Login screen', ($) async {
+    await pumpAuthenticatedApp($);
+    await openBottomTabIndex($, 3);
+
+    await $(find.byIcon(Icons.logout)).tap();
+    await $.pumpAndSettle();
+
+    expect(find.text('OpenAlex Research Analytics'), findsOneWidget);
+    expect(find.textContaining('Google'), findsOneWidget);
+  });
 }

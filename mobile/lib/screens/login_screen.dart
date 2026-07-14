@@ -101,11 +101,12 @@ class LoginScreen extends StatelessWidget {
 
   Future<void> _signInWithGoogle(BuildContext context) async {
     final auth = context.read<AuthProvider>();
+    final firebaseFeatures = context.read<FirebaseFeaturesViewModel>();
     await auth.signInWithGoogle();
-    if (!context.mounted || !auth.isAuthenticated) {
+    if (!auth.isAuthenticated) {
       return;
     }
-    await context.read<FirebaseFeaturesViewModel>().trackLogin();
+    await firebaseFeatures.trackLogin();
   }
 }
 

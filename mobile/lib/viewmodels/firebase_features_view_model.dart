@@ -112,9 +112,7 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
       await remoteConfig.setConfigSettings(
         RemoteConfigSettings(
           fetchTimeout: const Duration(seconds: 10),
-          minimumFetchInterval: kDebugMode
-              ? Duration.zero
-              : const Duration(hours: 1),
+          minimumFetchInterval: Duration.zero,
         ),
       );
       await remoteConfig.fetchAndActivate();
@@ -196,21 +194,29 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
   Future<void> trackSearchTopic(String topic) {
     return _logEvent(
       'search_topic',
-      parameters: <String, Object>{'topic': _limit(topic)},
+      parameters: <String, Object>{
+        'keyword': _limit(topic),
+        'topic': _limit(topic),
+      },
     );
   }
 
   Future<void> trackViewPublication({
     required String publicationId,
     required String title,
+    int? publicationYear,
   }) {
-    return _logEvent(
-      'view_publication',
-      parameters: <String, Object>{
-        'publication_id': _limit(publicationId),
-        'title': _limit(title),
-      },
-    );
+    final parameters = <String, Object>{
+      'publication_id': _limit(publicationId),
+      'publication_title': _limit(title),
+      'title': _limit(title),
+    };
+    final year = publicationYear;
+    if (year != null) {
+      parameters['publication_year'] = year;
+    }
+
+    return _logEvent('view_publication', parameters: parameters);
   }
 
   Future<void> trackViewJournal({
@@ -221,6 +227,7 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
       'view_journal',
       parameters: <String, Object>{
         'journal_id': _limit(journalId),
+        'journal_name': _limit(name),
         'name': _limit(name),
       },
     );
@@ -234,6 +241,7 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
       'view_keyword',
       parameters: <String, Object>{
         'keyword_id': _limit(keywordId),
+        'keyword': _limit(name),
         'name': _limit(name),
       },
     );
