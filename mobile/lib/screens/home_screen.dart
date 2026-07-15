@@ -659,6 +659,7 @@ class _SearchResultsDashboard extends StatelessWidget {
               else
                 for (final publication in publications.take(8)) ...[
                   PaperCard(
+                    key: ValueKey('home_publication_result_${publication.id}'),
                     publication: publication,
                     onTap: () => onOpenPublication(publication),
                   ),

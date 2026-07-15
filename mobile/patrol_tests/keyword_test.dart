@@ -5,7 +5,9 @@ import 'package:patrol/patrol.dart';
 import 'helpers/patrol_app.dart';
 
 void main() {
-  patrolTest('shows keyword frontier list and charts', ($) async {
+  patrolTest('TC06 - Keywords Navigation displays statistics and list', (
+    $,
+  ) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 2);
 
@@ -21,23 +23,32 @@ void main() {
       find.byKey(const ValueKey('keywords_author_scatter_chart')),
       findsOneWidget,
     );
+    expect(find.byKey(const ValueKey('keyword_tile_1')), findsOneWidget);
     expect(find.text('deep learning'), findsWidgets);
   });
 
-  patrolTest('opens keyword detail with trend and related sections', ($) async {
+  patrolTest('TC07 - Keyword Details displays keyword analysis info', (
+    $,
+  ) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 2);
 
-    await $(find.text('deep learning').first).tap();
+    await $(find.byKey(const ValueKey('keyword_tile_1'))).tap();
     await $.pumpAndSettle();
 
     expect(find.byKey(const Key('keyword_detail_screen')), findsOneWidget);
+    expect(find.text('deep learning'), findsWidgets);
     expect(
       find.byKey(const ValueKey('keyword_publication_trend_chart')),
       findsOneWidget,
     );
     expect(
       find.byKey(const ValueKey('keyword_related_journals')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('keyword_top_authors')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('keyword_related_publications')),
       findsOneWidget,
     );
   });

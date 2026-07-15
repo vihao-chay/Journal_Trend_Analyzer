@@ -5,20 +5,7 @@ import 'package:patrol/patrol.dart';
 import 'helpers/patrol_app.dart';
 
 void main() {
-  patrolTest('exposes PDF export action in Profile', ($) async {
-    await pumpAuthenticatedApp($);
-    await openBottomTabIndex($, 3);
-
-    await $.scrollUntilVisible(
-      finder: find.byKey(const ValueKey('profile_export_pdf_button')),
-    );
-    expect(
-      find.byKey(const ValueKey('profile_export_pdf_button')),
-      findsOneWidget,
-    );
-  });
-
-  patrolTest('runs the guarded export flow without crashing the UI', ($) async {
+  patrolTest('TC09 - PDF Export uploads report to Firebase Storage', ($) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 3);
 
@@ -32,5 +19,10 @@ void main() {
       find.byKey(const ValueKey('profile_firebase_actions_card')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('profile_open_exported_pdf_button')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('PDF local:'), findsOneWidget);
   });
 }

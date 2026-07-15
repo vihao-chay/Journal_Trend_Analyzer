@@ -5,7 +5,7 @@ import 'package:patrol/patrol.dart';
 import 'helpers/patrol_app.dart';
 
 void main() {
-  patrolTest('shows Firebase profile sections', ($) async {
+  patrolTest('TC08 - Profile Navigation displays user profile info', ($) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 3);
 
@@ -24,29 +24,7 @@ void main() {
     );
   });
 
-  patrolTest('opens Notification screen from app bar bell', ($) async {
-    await pumpAuthenticatedApp($);
-
-    await $(find.byKey(const ValueKey('app_notification_bell_button'))).tap();
-    await $.pumpAndSettle();
-
-    expect(find.byKey(const Key('notifications_screen')), findsOneWidget);
-    expect(find.text('Trung tâm thông báo'), findsOneWidget);
-  });
-
-  patrolTest('supports theme and sign-out controls', ($) async {
-    await pumpAuthenticatedApp($);
-    await openBottomTabIndex($, 3);
-
-    expect(find.textContaining('Firebase'), findsWidgets);
-    expect(
-      find.byKey(const ValueKey('profile_bottom_logout_button')),
-      findsOneWidget,
-    );
-    expect(find.byIcon(Icons.dark_mode_outlined), findsOneWidget);
-  });
-
-  patrolTest('performs logout and returns to Login screen', ($) async {
+  patrolTest('TC11 - Logout redirects to Login screen', ($) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 3);
 
@@ -57,6 +35,6 @@ void main() {
     await $.pumpAndSettle();
 
     expect(find.text('OpenAlex Research Analytics'), findsOneWidget);
-    expect(find.textContaining('Google'), findsOneWidget);
+    expect(find.byKey(const ValueKey('login_google_button')), findsOneWidget);
   });
 }

@@ -21,6 +21,8 @@ class SearchProvider extends ChangeNotifier {
 
   final ApiService _apiService;
 
+  ApiService get apiService => _apiService;
+
   static const _recentSearchesKey = 'recent_searches_v1';
   int _searchGeneration = 0;
   int _journalLoadGeneration = 0;

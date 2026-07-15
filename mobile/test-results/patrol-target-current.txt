@@ -1,0 +1,66 @@
+
+Update available! 4.4.0 → 4.5.1
+
+Check the compatibility table at: https://patrol.leancode.co/documentation/compatibility-table
+
+
+error while disposing
+Bad state: This dispose scope is already disposed
+#0      DisposeScope.dispose (package:dispose_scope/src/dispose_scope.dart:33:7)
+#1      PatrolCommandRunner.dispose (package:patrol_cli/src/runner/patrol_command_runner.dart:289:27)
+#2      patrolCommandRunner.<anonymous closure> (package:patrol_cli/src/runner/patrol_command_runner.dart:73:18)
+#3      _RootZone.runUnaryGuarded (dart:async/zone.dart:891:10)
+#4      _BufferingStreamSubscription._sendData (dart:async/stream_impl.dart:381:11)
+#5      _DelayedData.perform (dart:async/stream_impl.dart:573:14)
+#6      _PendingEvents.handleNext (dart:async/stream_impl.dart:678:11)
+#7      _PendingEvents.schedule.<anonymous closure> (dart:async/stream_impl.dart:649:7)
+#8      _microtaskLoop (dart:async/schedule_microtask.dart:40:35)
+#9      _startMicrotaskLoop (dart:async/schedule_microtask.dart:49:5)
+#10     _runPendingImmediateCallback (dart:isolate-patch/isolate_patch.dart:127:13)
+#11     _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:193:5)
+
+error while disposing
+Bad state: This dispose scope is already disposed
+#0      DisposeScope.dispose (package:dispose_scope/src/dispose_scope.dart:33:7)
+#1      PatrolCommandRunner.dispose (package:patrol_cli/src/runner/patrol_command_runner.dart:289:27)
+#2      patrolCommandRunner.<anonymous closure> (package:patrol_cli/src/runner/patrol_command_runner.dart:73:18)
+#3      _RootZone.runUnaryGuarded (dart:async/zone.dart:891:10)
+#4      _BufferingStreamSubscription._sendData (dart:async/stream_impl.dart:381:11)
+#5      _DelayedData.perform (dart:async/stream_impl.dart:573:14)
+#6      _PendingEvents.handleNext (dart:async/stream_impl.dart:678:11)
+#7      _PendingEvents.schedule.<anonymous closure> (dart:async/stream_impl.dart:649:7)
+#8      _microtaskLoop (dart:async/schedule_microtask.dart:40:35)
+#9      _startMicrotaskLoop (dart:async/schedule_microtask.dart:49:5)
+#10     _runPendingImmediateCallback (dart:isolate-patch/isolate_patch.dart:127:13)
+#11     _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:193:5)
+
+error while disposing
+Bad state: This dispose scope is already disposed
+#0      DisposeScope.dispose (package:dispose_scope/src/dispose_scope.dart:33:7)
+#1      PatrolCommandRunner.dispose (package:patrol_cli/src/runner/patrol_command_runner.dart:289:27)
+#2      patrolCommandRunner.<anonymous closure> (package:patrol_cli/src/runner/patrol_command_runner.dart:73:18)
+#3      _RootZone.runUnaryGuarded (dart:async/zone.dart:891:10)
+#4      _BufferingStreamSubscription._sendData (dart:async/stream_impl.dart:381:11)
+#5      _DelayedData.perform (dart:async/stream_impl.dart:573:14)
+#6      _PendingEvents.handleNext (dart:async/stream_impl.dart:678:11)
+#7      _PendingEvents.schedule.<anonymous closure> (dart:async/stream_impl.dart:649:7)
+#8      _microtaskLoop (dart:async/schedule_microtask.dart:40:35)
+#9      _startMicrotaskLoop (dart:async/schedule_microtask.dart:49:5)
+#10     _runPendingImmediateCallback (dart:isolate-patch/isolate_patch.dart:127:13)
+#11     _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:193:5)
+
+error while disposing
+Bad state: This dispose scope is already disposed
+#0      DisposeScope.dispose (package:dispose_scope/src/dispose_scope.dart:33:7)
+#1      PatrolCommandRunner.dispose (package:patrol_cli/src/runner/patrol_command_runner.dart:289:27)
+#2      patrolCommandRunner.<anonymous closure> (package:patrol_cli/src/runner/patrol_command_runner.dart:73:18)
+#3      _RootZone.runUnaryGuarded (dart:async/zone.dart:891:10)
+#4      _BufferingStreamSubscription._sendData (dart:async/stream_impl.dart:381:11)
+#5      _DelayedData.perform (dart:async/stream_impl.dart:573:14)
+#6      _PendingEvents.handleNext (dart:async/stream_impl.dart:678:11)
+#7      _PendingEvents.schedule.<anonymous closure> (dart:async/stream_impl.dart:649:7)
+#8      _microtaskLoop (dart:async/schedule_microtask.dart:40:35)
+#9      _startMicrotaskLoop (dart:async/schedule_microtask.dart:49:5)
+#10     _runPendingImmediateCallback (dart:isolate-patch/isolate_patch.dart:127:13)
+#11     _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:193:5)
+

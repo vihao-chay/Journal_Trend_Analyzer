@@ -356,6 +356,7 @@ class _JournalList extends StatelessWidget {
             index++
           ) ...[
             JournalCard(
+              key: ValueKey('journal_card_${index + 1}'),
               journal: journals[index],
               rank: index + 1,
               onTap: () {

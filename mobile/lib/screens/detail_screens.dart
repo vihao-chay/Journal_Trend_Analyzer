@@ -6,6 +6,7 @@ import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
 import '../models/journal_model.dart';
 import '../models/publication_model.dart';
+import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
 import '../viewmodels/firebase_features_view_model.dart';
 import '../viewmodels/journal_detail_view_model.dart';
@@ -203,7 +204,10 @@ class _JournalDetailScreenState extends State<JournalDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _viewModel = JournalDetailViewModel(journal: widget.journal)..load();
+    _viewModel = JournalDetailViewModel(
+      journal: widget.journal,
+      apiService: context.read<SearchProvider>().apiService,
+    )..load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -345,7 +349,10 @@ class _KeywordDetailScreenState extends State<KeywordDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _viewModel = KeywordDetailViewModel(keyword: widget.keyword)..load();
+    _viewModel = KeywordDetailViewModel(
+      keyword: widget.keyword,
+      apiService: context.read<SearchProvider>().apiService,
+    )..load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;

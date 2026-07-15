@@ -842,6 +842,7 @@ class _ResearchSearchBarState extends State<ResearchSearchBar> {
                         : appCardShadow,
                   ),
                   child: TextField(
+                    key: const ValueKey('research_search_input_text_field'),
                     controller: textEditingController,
                     focusNode: focusNode,
                     onSubmitted: (String value) {
@@ -870,6 +871,7 @@ class _ResearchSearchBarState extends State<ResearchSearchBar> {
                             color: Colors.white,
                             size: 20,
                           ),
+                          key: const ValueKey('research_search_submit_button'),
                           onPressed: widget.onSearchPressed,
                         ),
                       ),

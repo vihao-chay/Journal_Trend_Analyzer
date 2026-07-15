@@ -65,6 +65,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: AppSpacing.large),
                       FilledButton.icon(
+                        key: const ValueKey('login_google_button'),
                         onPressed: auth.isSigningIn
                             ? null
                             : () => _signInWithGoogle(context),

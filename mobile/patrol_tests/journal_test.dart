@@ -5,23 +5,34 @@ import 'package:patrol/patrol.dart';
 import 'helpers/patrol_app.dart';
 
 void main() {
-  patrolTest('shows journal ranking and publication list', ($) async {
+  patrolTest('TC04 - Journals Navigation displays statistics and list', (
+    $,
+  ) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 1);
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(find.text('Journal of Research Analytics'), findsWidgets);
-    expect(find.textContaining('Danh'), findsWidgets);
+    expect(find.byKey(const ValueKey('journal_card_1')), findsOneWidget);
   });
 
-  patrolTest('opens journal detail with related publications', ($) async {
+  patrolTest('TC05 - Journal Details displays selected journal info', (
+    $,
+  ) async {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 1);
 
-    await $(find.text('Journal of Research Analytics').first).tap();
+    await $.scrollUntilVisible(
+      finder: find.byKey(const ValueKey('journal_card_1')),
+    );
+    await $(find.byKey(const ValueKey('journal_card_1'))).tap();
     await $.pumpAndSettle();
 
     expect(find.byKey(const Key('journal_detail_screen')), findsOneWidget);
-    expect(find.byKey(const Key('journal_related_publications')), findsWidgets);
+    expect(find.text('Journal of Research Analytics'), findsWidgets);
+    expect(
+      find.byKey(const Key('journal_related_publications')),
+      findsOneWidget,
+    );
   });
 }
