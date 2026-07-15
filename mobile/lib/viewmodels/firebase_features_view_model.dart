@@ -107,7 +107,9 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
       final remoteConfig = FirebaseRemoteConfig.instance;
       await remoteConfig.setDefaults(const <String, dynamic>{
         'max_journals': 10,
+        'max_journal': 10,
         'max_keywords': 12,
+        'max_keyword': 12,
       });
       await remoteConfig.setConfigSettings(
         RemoteConfigSettings(
@@ -116,8 +118,22 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
         ),
       );
       await remoteConfig.fetchAndActivate();
-      maxJournals = _boundedConfigInt(remoteConfig, 'max_journals', 10, 3, 25);
-      maxKeywords = _boundedConfigInt(remoteConfig, 'max_keywords', 12, 4, 30);
+      maxJournals = _boundedConfigInt(
+        remoteConfig,
+        'max_journals',
+        10,
+        3,
+        25,
+        aliases: const ['max_journal'],
+      );
+      maxKeywords = _boundedConfigInt(
+        remoteConfig,
+        'max_keywords',
+        12,
+        4,
+        30,
+        aliases: const ['max_keyword'],
+      );
       errorMessage = null;
     } catch (error, stackTrace) {
       errorMessage = 'Không thể tải Remote Config.';
@@ -332,19 +348,25 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
           ),
           pw.SizedBox(height: 16),
           pw.Header(level: 1, text: 'Top journals'),
-          pw.Bullet(text: data.topJournals.isEmpty ? 'No data' : ''),
-          for (final journal in data.topJournals.take(10))
-            pw.Bullet(text: journal),
+          if (data.topJournals.isEmpty)
+            pw.Bullet(text: 'No data')
+          else
+            for (final journal in data.topJournals.take(10))
+              pw.Bullet(text: journal),
           pw.SizedBox(height: 10),
           pw.Header(level: 1, text: 'Top keywords'),
-          pw.Bullet(text: data.topKeywords.isEmpty ? 'No data' : ''),
-          for (final keyword in data.topKeywords.take(12))
-            pw.Bullet(text: keyword),
+          if (data.topKeywords.isEmpty)
+            pw.Bullet(text: 'No data')
+          else
+            for (final keyword in data.topKeywords.take(12))
+              pw.Bullet(text: keyword),
           pw.SizedBox(height: 10),
           pw.Header(level: 1, text: 'Recent searches'),
-          pw.Bullet(text: data.recentSearches.isEmpty ? 'No data' : ''),
-          for (final search in data.recentSearches.take(8))
-            pw.Bullet(text: search),
+          if (data.recentSearches.isEmpty)
+            pw.Bullet(text: 'No data')
+          else
+            for (final search in data.recentSearches.take(8))
+              pw.Bullet(text: search),
         ],
       ),
     );
@@ -397,9 +419,17 @@ class FirebaseFeaturesViewModel extends ChangeNotifier {
     String key,
     int fallback,
     int min,
-    int max,
-  ) {
-    final value = remoteConfig.getInt(key);
+    int max, {
+    List<String> aliases = const [],
+  }) {
+    final configKeys = [key, ...aliases];
+    final remoteKey = configKeys.cast<String?>().firstWhere(
+      (configKey) =>
+          configKey != null &&
+          remoteConfig.getValue(configKey).source == ValueSource.valueRemote,
+      orElse: () => null,
+    );
+    final value = remoteConfig.getInt(remoteKey ?? key);
     if (value == 0) {
       return fallback;
     }

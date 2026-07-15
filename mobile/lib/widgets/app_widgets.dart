@@ -654,11 +654,13 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBack = false,
     this.onBack,
     this.title = 'Phân tích nghiên cứu OpenAlex',
+    this.actions,
   });
 
   final bool showBack;
   final VoidCallback? onBack;
   final String title;
+  final List<Widget>? actions;
 
   @override
   Size get preferredSize => const Size.fromHeight(56);
@@ -716,6 +718,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
+      actions: actions,
     );
   }
 }
@@ -816,108 +819,119 @@ class _ResearchSearchBarState extends State<ResearchSearchBar> {
               return widget.suggestions;
             }
             return widget.suggestions.where((String option) {
-              return option
-                  .toLowerCase()
-                  .contains(textEditingValue.text.toLowerCase());
+              return option.toLowerCase().contains(
+                textEditingValue.text.toLowerCase(),
+              );
             });
           },
           onSelected: (String selection) {
             widget.onSubmitted(selection);
           },
-          fieldViewBuilder: (
-            BuildContext context,
-            TextEditingController textEditingController,
-            FocusNode focusNode,
-            VoidCallback onFieldSubmitted,
-          ) {
-            return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                boxShadow:
-                    theme.brightness == Brightness.dark ? null : appCardShadow,
-              ),
-              child: TextField(
-                controller: textEditingController,
-                focusNode: focusNode,
-                onSubmitted: (String value) {
-                  onFieldSubmitted();
-                  widget.onSubmitted(value);
-                },
-                onChanged: widget.onChanged,
-                textInputAction: TextInputAction.search,
-                style: Theme.of(context).textTheme.bodyMedium,
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  prefixIcon:
-                      Icon(Icons.search, color: theme.colorScheme.primary),
-                  suffixIcon: Container(
-                    margin: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      borderRadius: BorderRadius.circular(AppRadius.small),
-                    ),
-                    child: IconButton(
-                      tooltip: 'Tìm kiếm',
-                      icon: const Icon(
-                        Icons.arrow_forward,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: widget.onSearchPressed,
-                    ),
+          fieldViewBuilder:
+              (
+                BuildContext context,
+                TextEditingController textEditingController,
+                FocusNode focusNode,
+                VoidCallback onFieldSubmitted,
+              ) {
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
+                    boxShadow: theme.brightness == Brightness.dark
+                        ? null
+                        : appCardShadow,
                   ),
-                ),
-              ),
-            );
-          },
-          optionsViewBuilder: (
-            BuildContext context,
-            AutocompleteOnSelected<String> onSelected,
-            Iterable<String> options,
-          ) {
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(AppRadius.medium),
-                clipBehavior: Clip.antiAlias,
-                child: SizedBox(
-                  width: constraints.biggest.width,
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: options.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      final String option = options.elementAt(index);
-                      return InkWell(
-                        onTap: () {
-                          onSelected(option);
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 12.0,
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.history, size: 18, color: Colors.grey),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
+                  child: TextField(
+                    controller: textEditingController,
+                    focusNode: focusNode,
+                    onSubmitted: (String value) {
+                      onFieldSubmitted();
+                      widget.onSubmitted(value);
                     },
+                    onChanged: widget.onChanged,
+                    textInputAction: TextInputAction.search,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: theme.colorScheme.primary,
+                      ),
+                      suffixIcon: Container(
+                        margin: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(AppRadius.small),
+                        ),
+                        child: IconButton(
+                          tooltip: 'Tìm kiếm',
+                          icon: const Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: widget.onSearchPressed,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
+                );
+              },
+          optionsViewBuilder:
+              (
+                BuildContext context,
+                AutocompleteOnSelected<String> onSelected,
+                Iterable<String> options,
+              ) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
+                    clipBehavior: Clip.antiAlias,
+                    child: SizedBox(
+                      width: constraints.biggest.width,
+                      child: ListView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        itemCount: options.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final String option = options.elementAt(index);
+                          return InkWell(
+                            onTap: () {
+                              onSelected(option);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 12.0,
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.history,
+                                    size: 18,
+                                    color: Colors.grey,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      option,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              },
         );
       },
     );
@@ -1139,41 +1153,42 @@ class AuthorCard extends StatelessWidget {
           child: Row(
             children: [
               _RankBadge(rank: rank),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  author.displayName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    MetricPill(
-                      label: '${formatCompactNumber(author.worksCount)} bài',
-                      icon: Icons.article_outlined,
+                    Text(
+                      author.displayName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    if (author.citedByCount > 0)
-                      MetricPill(
-                        label:
-                            '${formatCompactNumber(author.citedByCount)} trích dẫn',
-                        icon: Icons.format_quote,
-                        accentColor: AppColors.accent,
-                      ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        MetricPill(
+                          label:
+                              '${formatCompactNumber(author.worksCount)} bài',
+                          icon: Icons.article_outlined,
+                        ),
+                        if (author.citedByCount > 0)
+                          MetricPill(
+                            label:
+                                '${formatCompactNumber(author.citedByCount)} trích dẫn',
+                            icon: Icons.format_quote,
+                            accentColor: AppColors.accent,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
+        ),
       ),
     );
   }
@@ -1559,11 +1574,13 @@ class HorizontalBarChart extends StatelessWidget {
     super.key,
     required this.data,
     this.valueSuffix = 'bài',
+    this.maxItems = 8,
     this.onTap,
   });
 
   final List<ChartBarData> data;
   final String valueSuffix;
+  final int maxItems;
   final void Function(int index)? onTap;
 
   static const _barColors = [
@@ -1583,7 +1600,7 @@ class HorizontalBarChart extends StatelessWidget {
       );
     }
 
-    final visibleData = data.take(8).toList(growable: false);
+    final visibleData = data.take(maxItems).toList(growable: false);
     final maxValue = math.max(
       1.0,
       visibleData.map((item) => item.value).reduce(math.max).toDouble(),
@@ -1789,7 +1806,8 @@ class _LineChartState extends State<LineChart> {
       return const AppEmptyState(
         icon: Icons.show_chart,
         title: 'Chưa có tốc độ trích dẫn',
-        message: 'OpenAlex chưa trả về dữ liệu trích dẫn theo năm cho chủ đề này.',
+        message:
+            'OpenAlex chưa trả về dữ liệu trích dẫn theo năm cho chủ đề này.',
       );
     }
 
@@ -1797,13 +1815,21 @@ class _LineChartState extends State<LineChart> {
       builder: (context, constraints) {
         return MouseRegion(
           onHover: (event) {
-            _updateActiveIndex(event.localPosition, constraints.biggest, displayed.length);
+            _updateActiveIndex(
+              event.localPosition,
+              constraints.biggest,
+              displayed.length,
+            );
           },
           onExit: (_) => setState(() => _activeIndex = null),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTapDown: (details) {
-              _updateActiveIndex(details.localPosition, constraints.biggest, displayed.length);
+              _updateActiveIndex(
+                details.localPosition,
+                constraints.biggest,
+                displayed.length,
+              );
             },
             onTapUp: (_) => setState(() => _activeIndex = null),
             child: CustomPaint(
@@ -1907,10 +1933,10 @@ class _LineChartPainter extends CustomPainter {
     }
 
     final xDivisor = points.length > 1 ? points.length - 1 : 1;
-    final labelStep = math.max(1, points.length ~/ 4);
+    final labelIndexes = _xAxisLabelIndexes(points.length);
     for (var index = 0; index < points.length; index++) {
       final x = plotRect.left + plotRect.width * index / xDivisor;
-      if (index % labelStep == 0 || index == points.length - 1) {
+      if (labelIndexes.contains(index)) {
         canvas.drawLine(
           Offset(x, plotRect.top),
           Offset(x, plotRect.bottom),
@@ -1980,14 +2006,15 @@ class _LineChartPainter extends CustomPainter {
       ..color = AppColors.secondary
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
-      
+
     for (var i = 0; i < offsets.length; i++) {
       if (i == activeIndex) {
         canvas
           ..drawCircle(offsets[i], 6, fillPaint)
           ..drawCircle(offsets[i], 6, pointPaint..strokeWidth = 3);
-          
-        final tooltipText = '${points[i].year}: ${formatCompactNumber(points[i].value)}';
+
+        final tooltipText =
+            '${points[i].year}: ${formatCompactNumber(points[i].value)}';
         final painter = TextPainter(
           text: TextSpan(
             text: tooltipText,
@@ -1999,28 +2026,62 @@ class _LineChartPainter extends CustomPainter {
           ),
           textDirection: TextDirection.ltr,
         )..layout();
-        
+
         final tooltipRect = Rect.fromCenter(
           center: Offset(offsets[i].dx, offsets[i].dy - 24),
           width: painter.width + 16,
           height: painter.height + 12,
         );
-        
+
         canvas.drawRRect(
           RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
           Paint()..color = AppColors.surface,
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(tooltipRect, const Radius.circular(6)),
-          Paint()..color = AppColors.border..style = PaintingStyle.stroke..strokeWidth = 1,
+          Paint()
+            ..color = AppColors.border
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
         );
-        painter.paint(canvas, Offset(tooltipRect.left + 8, tooltipRect.top + 6));
+        painter.paint(
+          canvas,
+          Offset(tooltipRect.left + 8, tooltipRect.top + 6),
+        );
       } else {
         canvas
           ..drawCircle(offsets[i], 4, fillPaint)
           ..drawCircle(offsets[i], 4, pointPaint..strokeWidth = 2);
       }
     }
+  }
+
+  Set<int> _xAxisLabelIndexes(int pointCount) {
+    if (pointCount <= 0) {
+      return const {};
+    }
+    if (pointCount <= 5) {
+      return {for (var index = 0; index < pointCount; index++) index};
+    }
+
+    const targetLabelCount = 5;
+    final lastIndex = pointCount - 1;
+    final indexes = <int>{0, lastIndex};
+    final step = lastIndex / (targetLabelCount - 1);
+
+    for (var label = 1; label < targetLabelCount - 1; label++) {
+      final index = (step * label).round().clamp(1, lastIndex - 1);
+      indexes.add(index);
+    }
+
+    final minGapFromLast = math.max(2, (pointCount / 8).ceil());
+    indexes.removeWhere(
+      (index) =>
+          index != 0 &&
+          index != lastIndex &&
+          lastIndex - index < minGapFromLast,
+    );
+    return indexes;
   }
 
   void _drawText(

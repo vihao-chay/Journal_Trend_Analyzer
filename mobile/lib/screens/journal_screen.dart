@@ -134,6 +134,7 @@ class _JournalScreenState extends State<JournalScreen> {
                         ),
                       )
                       .toList(growable: false),
+                  maxItems: maxJournals,
                   onTap: (index) {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(

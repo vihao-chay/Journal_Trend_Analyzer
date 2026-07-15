@@ -6,10 +6,10 @@ Flutter mobile app phan tich xu huong hoc thuat tu OpenAlex, bo sung Firebase th
 
 - Firebase Authentication voi Google Sign-In.
 - Firebase Analytics events: `login`, `search_topic`, `view_publication`, `view_journal`, `view_keyword`, `export_pdf`, `logout`.
-- Firebase Cloud Messaging notification center, luu inbox foreground/background/opened messages bang local preferences.
+- Firebase Cloud Messaging notification center qua icon chuong tren app bar, co badge do khi co thong bao moi va copy FCM token trong Profile.
 - Firebase Remote Config voi 2 key:
-  - `max_journals`: gioi han so tap chi hien thi trong tab Journals.
-  - `max_keywords`: gioi han so keyword hien thi trong tab Keywords.
+  - `max_journals`: gioi han so tap chi hien thi trong tab Journals. App cung chap nhan alias `max_journal` neu ban da tao key so it tren Firebase.
+  - `max_keywords`: gioi han so keyword hien thi trong tab Keywords. App cung chap nhan alias `max_keyword`.
 - Firebase Storage export PDF: tao bao cao dashboard va upload vao `exports/`.
 - Firebase Crashlytics: global error handlers, non-fatal test, crash test button.
 - MVVM + Provider: `SearchProvider`, `AuthProvider`, `FirebaseFeaturesViewModel`, `JournalDetailViewModel`, `KeywordDetailViewModel`.
@@ -28,7 +28,7 @@ Can cau hinh Firebase cho Android truoc khi chay day du:
 1. Tao Firebase project va Android app package `com.example.mobile`.
 2. Dat `google-services.json` vao `android/app/google-services.json`.
 3. Bat Authentication Google provider, Analytics, Crashlytics, Cloud Messaging, Remote Config, Storage.
-4. Tao Remote Config keys `max_journals` va `max_keywords`.
+4. Tao Remote Config keys `max_journals` va `max_keywords`. Neu lo tao `max_journal` / `max_keyword` thi app van doc duoc, nhung nen dung key so nhieu de dung voi yeu cau lab.
 
 Neu khong dung file options sinh boi FlutterFire, co the truyen dart-define:
 
@@ -69,5 +69,5 @@ patrol test -t patrol_tests/authentication_test.dart --dart-define=PATROL_GOOGLE
 - Nut `Test crash` trong Profile se lam app crash that de gui Crashlytics fatal event. Chi bam khi dang demo Crashlytics.
 - Nut `Gui non-fatal` gui exception da handle len Crashlytics.
 - Export PDF can Firebase Storage bucket hop le va Storage rules cho phep user dang nhap upload.
-- FCM token hien trong Profile de gui test message tu Firebase Console.
+- Bam `Copy FCM token` trong Profile de gui test message tu Firebase Console; thong bao moi hien bang badge do tren icon chuong.
 - Video/report nen quay cac man: Google login, search topic, publication detail, journal detail, keyword detail, Remote Config thay doi limit, export PDF, FCM notification, Crashlytics non-fatal/fatal.

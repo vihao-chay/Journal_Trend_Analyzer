@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
+import '../models/author_model.dart';
 import '../models/global_overview.dart';
+import '../models/journal_model.dart';
 import '../models/publication_model.dart';
 import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
@@ -63,12 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasSearched = context.select<SearchProvider, bool>(
       (provider) => provider.hasSearched,
     );
-    final isGlobalLoading = context.select<SearchProvider, bool>(
-      (provider) => provider.isGlobalLoading,
-    );
-    final globalError = context.select<SearchProvider, String?>(
-      (provider) => provider.globalError,
-    );
     final isSearchLoading = context.select<SearchProvider, bool>(
       (provider) => provider.isSearchLoading,
     );
@@ -97,6 +93,12 @@ class _HomeScreenState extends State<HomeScreen> {
         .select<SearchProvider, PublicationModel?>(
           (provider) => provider.mostInfluentialPublication,
         );
+    final topAuthors = context.select<SearchProvider, List<AuthorModel>>(
+      (provider) => provider.topAuthors,
+    );
+    final topJournals = context.select<SearchProvider, List<JournalModel>>(
+      (provider) => provider.topJournals,
+    );
     final countryOutputs = context.select<SearchProvider, List<CountryOutput>>(
       (provider) => provider.countryOutputs,
     );
@@ -141,14 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
           suggestedTopics: suggestedTopics,
         ),
 
-        const SizedBox(height: AppSpacing.small),
-
-        _CompactOverviewMetrics(
-          overview: overview,
-          isLoading: isGlobalLoading,
-          error: globalError,
-        ),
-
         if (hasSearched) ...[
           const SizedBox(height: AppSpacing.medium),
           _SearchResultsDashboard(
@@ -160,6 +154,8 @@ class _HomeScreenState extends State<HomeScreen> {
             publicationTrend: publicationTrend,
             dashboardStats: dashboardStats,
             mostInfluentialPublication: mostInfluentialPublication,
+            topAuthors: topAuthors,
+            topJournals: topJournals,
             publications: publications,
             onRetry: keyword == null || keyword.trim().isEmpty
                 ? null
@@ -403,105 +399,55 @@ class _CompactSearchAndFilterCardState
   }
 }
 
-class _CompactOverviewMetrics extends StatelessWidget {
-  const _CompactOverviewMetrics({
-    required this.overview,
-    required this.isLoading,
-    required this.error,
-  });
-
-  final GlobalOverview? overview;
-  final bool isLoading;
-  final String? error;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading && overview == null) {
-      return const SectionCard(
-        padding: EdgeInsets.all(12),
-        child: SizedBox(
-          height: 40,
-          child: AppLoadingState(message: 'Đang tải thống kê...'),
-        ),
-      );
-    }
-
-    if (overview == null) {
-      return SectionCard(
-        padding: const EdgeInsets.all(12),
-        child: AppErrorState(
-          message: error ?? 'Không thể tải thống kê.',
-          onRetry: () => context.read<SearchProvider>().loadGlobalOverview(),
-        ),
-      );
-    }
-
-    final loadedOverview = overview!;
-
-    return SectionCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle(
-            icon: Icons.query_stats,
-            title: 'Thống kê tổng quan OpenAlex',
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              MetricPill(
-                label:
-                    '${formatCompactNumber(loadedOverview.totalWorks)} Bài báo',
-                icon: Icons.article_outlined,
-                accentColor: AppColors.secondary,
-              ),
-              MetricPill(
-                label:
-                    '${formatCompactNumber(loadedOverview.totalAuthors)} Tác giả',
-                icon: Icons.groups_outlined,
-                accentColor: AppColors.chartLine,
-              ),
-              MetricPill(
-                label:
-                    '${formatCompactNumber(loadedOverview.totalSources)} Tạp chí',
-                icon: Icons.library_books_outlined,
-                accentColor: AppColors.accent,
-              ),
-              if (loadedOverview.peakYear != null)
-                MetricPill(
-                  label: 'Đỉnh: ${loadedOverview.peakYear}',
-                  icon: Icons.calendar_month,
-                  accentColor: AppColors.primaryLight,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SearchStateCard extends StatelessWidget {
   const _SearchStateCard({
     required this.keyword,
     required this.isLoading,
     required this.error,
     required this.publicationTotalCount,
+    required this.searchAverageCitations,
     required this.searchCitationTotal,
+    required this.publicationTrend,
+    required this.dashboardStats,
+    required this.topAuthors,
+    required this.topJournals,
   });
 
   final String? keyword;
   final bool isLoading;
   final String? error;
   final int publicationTotalCount;
+  final double searchAverageCitations;
   final int searchCitationTotal;
+  final Map<String, int> publicationTrend;
+  final DashboardStats dashboardStats;
+  final List<AuthorModel> topAuthors;
+  final List<JournalModel> topJournals;
 
   @override
   Widget build(BuildContext context) {
+    final averageCitations = searchAverageCitations > 0
+        ? searchAverageCitations
+        : dashboardStats.averageCitations;
+    final peakYear =
+        _peakYearFromTrend(publicationTrend) ??
+        (dashboardStats.topYear == null
+            ? null
+            : _YearMetric(
+                dashboardStats.topYear!,
+                dashboardStats.topYearCount,
+              ));
+    final topAuthor = topAuthors.isNotEmpty ? topAuthors.first : null;
+    final topJournal = topJournals.isNotEmpty ? topJournals.first : null;
+    final topAuthorName = topAuthor?.displayName ?? dashboardStats.topAuthor;
+    final topAuthorCount =
+        topAuthor?.worksCount ?? dashboardStats.topAuthorCount;
+    final topJournalName = topJournal?.displayName ?? dashboardStats.topJournal;
+    final topJournalCount =
+        topJournal?.worksCount ?? dashboardStats.topJournalCount;
+
     return SectionCard(
+      key: const ValueKey('home_topic_overview_dashboard'),
       padding: const EdgeInsets.all(12),
       accentColor: AppColors.chartLine,
       child: Column(
@@ -509,7 +455,9 @@ class _SearchStateCard extends StatelessWidget {
         children: [
           SectionTitle(
             icon: Icons.analytics_outlined,
-            title: keyword == null ? 'Kết quả tìm kiếm' : 'Kết quả: "$keyword"',
+            title: keyword == null
+                ? 'Tổng quan chủ đề'
+                : 'Tổng quan chủ đề: "$keyword"',
           ),
           const SizedBox(height: 10),
           if (isLoading)
@@ -529,7 +477,7 @@ class _SearchStateCard extends StatelessWidget {
               children: [
                 MetricPill(
                   label:
-                      '${formatCompactNumber(publicationTotalCount)} kết quả',
+                      '${formatCompactNumber(publicationTotalCount)} bài báo',
                   icon: Icons.cloud_done_outlined,
                   accentColor: AppColors.secondary,
                 ),
@@ -539,12 +487,64 @@ class _SearchStateCard extends StatelessWidget {
                   icon: Icons.format_quote,
                   accentColor: AppColors.accent,
                 ),
+                MetricPill(
+                  label: '${averageCitations.toStringAsFixed(1)} trích dẫn/bài',
+                  icon: Icons.calculate_outlined,
+                  accentColor: AppColors.chartLine,
+                ),
               ],
             ),
+          if (!isLoading && error == null) ...[
+            if (peakYear != null) ...[
+              const SizedBox(height: 12),
+              HighlightTile(
+                icon: Icons.calendar_month_outlined,
+                text:
+                    'Năm hoạt động mạnh nhất: ${peakYear.year} (${formatCompactNumber(peakYear.count)} bài).',
+              ),
+            ],
+            if (topAuthorName != null && topAuthorName.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              HighlightTile(
+                icon: Icons.person_outline,
+                text:
+                    'Tác giả đóng góp nhiều nhất: $topAuthorName (${formatCompactNumber(topAuthorCount)} bài).',
+              ),
+            ],
+            if (topJournalName != null && topJournalName.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              HighlightTile(
+                icon: Icons.menu_book_outlined,
+                text:
+                    'Tạp chí nổi bật nhất: $topJournalName (${formatCompactNumber(topJournalCount)} bài).',
+              ),
+            ],
+          ],
         ],
       ),
     );
   }
+}
+
+class _YearMetric {
+  const _YearMetric(this.year, this.count);
+
+  final int year;
+  final int count;
+}
+
+_YearMetric? _peakYearFromTrend(Map<String, int> publicationTrend) {
+  _YearMetric? peak;
+  for (final entry in publicationTrend.entries) {
+    final year = int.tryParse(entry.key);
+    if (year == null) {
+      continue;
+    }
+    if (peak == null || entry.value > peak.count) {
+      peak = _YearMetric(year, entry.value);
+    }
+  }
+  return peak;
 }
 
 class _SearchResultsDashboard extends StatelessWidget {
@@ -557,6 +557,8 @@ class _SearchResultsDashboard extends StatelessWidget {
     required this.publicationTrend,
     required this.dashboardStats,
     required this.mostInfluentialPublication,
+    required this.topAuthors,
+    required this.topJournals,
     required this.publications,
     required this.onRetry,
     required this.onOpenPublication,
@@ -570,6 +572,8 @@ class _SearchResultsDashboard extends StatelessWidget {
   final Map<String, int> publicationTrend;
   final DashboardStats dashboardStats;
   final PublicationModel? mostInfluentialPublication;
+  final List<AuthorModel> topAuthors;
+  final List<JournalModel> topJournals;
   final List<PublicationModel> publications;
   final VoidCallback? onRetry;
   final ValueChanged<PublicationModel> onOpenPublication;
@@ -605,37 +609,15 @@ class _SearchResultsDashboard extends StatelessWidget {
           isLoading: isLoading,
           error: error,
           publicationTotalCount: publicationTotalCount,
+          searchAverageCitations: searchAverageCitations,
           searchCitationTotal: dashboardStats.totalCitations,
+          publicationTrend: publicationTrend,
+          dashboardStats: dashboardStats,
+          topAuthors: topAuthors,
+          topJournals: topJournals,
         ),
         const SizedBox(height: AppSpacing.medium),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 760;
-            final metrics = _DashboardMetricsCard(
-              dashboardStats: dashboardStats,
-              publicationTotalCount: publicationTotalCount,
-              averageCitations: searchAverageCitations,
-            );
-            final trend = _TrendCard(publicationTrend: publicationTrend);
-            if (!wide) {
-              return Column(
-                children: [
-                  metrics,
-                  const SizedBox(height: AppSpacing.medium),
-                  trend,
-                ],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: metrics),
-                const SizedBox(width: AppSpacing.medium),
-                Expanded(child: trend),
-              ],
-            );
-          },
-        ),
+        _TrendCard(publicationTrend: publicationTrend),
         if (influential != null) ...[
           const SizedBox(height: AppSpacing.medium),
           SectionCard(
@@ -686,81 +668,6 @@ class _SearchResultsDashboard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _DashboardMetricsCard extends StatelessWidget {
-  const _DashboardMetricsCard({
-    required this.dashboardStats,
-    required this.publicationTotalCount,
-    required this.averageCitations,
-  });
-
-  final DashboardStats dashboardStats;
-  final int publicationTotalCount;
-  final double averageCitations;
-
-  @override
-  Widget build(BuildContext context) {
-    return SectionCard(
-      key: const ValueKey('home_dashboard_metrics'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle(
-            icon: Icons.speed_outlined,
-            title: 'Chỉ số dashboard',
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              MetricPill(
-                label: '${formatCompactNumber(publicationTotalCount)} kết quả',
-                icon: Icons.cloud_done_outlined,
-                accentColor: AppColors.secondary,
-              ),
-              MetricPill(
-                label: '${averageCitations.toStringAsFixed(1)} trích dẫn/bài',
-                icon: Icons.calculate_outlined,
-                accentColor: AppColors.chartLine,
-              ),
-              MetricPill(
-                label: '${dashboardStats.uniqueAuthors} tác giả',
-                icon: Icons.groups_outlined,
-                accentColor: AppColors.accent,
-              ),
-              MetricPill(
-                label: '${dashboardStats.uniqueJournals} tạp chí',
-                icon: Icons.library_books_outlined,
-                accentColor: AppColors.primaryLight,
-              ),
-              if (dashboardStats.topYear != null)
-                MetricPill(
-                  label:
-                      'Năm nổi bật: ${dashboardStats.topYear} (${dashboardStats.topYearCount})',
-                  icon: Icons.calendar_month,
-                ),
-            ],
-          ),
-          if (dashboardStats.topAuthor != null) ...[
-            const SizedBox(height: 12),
-            HighlightTile(
-              icon: Icons.person_outline,
-              text:
-                  'Tác giả xuất hiện nhiều nhất: ${dashboardStats.topAuthor} (${dashboardStats.topAuthorCount} bài).',
-            ),
-          ],
-          if (dashboardStats.topJournal != null)
-            HighlightTile(
-              icon: Icons.menu_book_outlined,
-              text:
-                  'Tạp chí xuất hiện nhiều nhất: ${dashboardStats.topJournal} (${dashboardStats.topJournalCount} bài).',
-            ),
-        ],
-      ),
     );
   }
 }

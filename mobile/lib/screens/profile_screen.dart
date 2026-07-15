@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme/app_theme.dart';
-import '../models/app_notification.dart';
 import '../models/auth_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/search_provider.dart';
@@ -41,21 +40,11 @@ class ProfileScreen extends StatelessWidget {
           badge: 'Cài đặt',
         ),
         const SizedBox(height: AppSpacing.medium),
-        SectionCard(
-          child: _UserAccountCard(
-            user: authProvider.user,
-            isSigningOut: authProvider.isSigningOut,
-            onSignOut: authProvider.isSigningOut
-                ? null
-                : () => _signOut(context),
-          ),
-        ),
+        SectionCard(child: _UserAccountCard(user: authProvider.user)),
         const SizedBox(height: AppSpacing.medium),
         _FirebaseStatusCard(firebaseFeatures: firebaseFeatures),
         const SizedBox(height: AppSpacing.medium),
         _RemoteConfigCard(firebaseFeatures: firebaseFeatures),
-        const SizedBox(height: AppSpacing.medium),
-        _NotificationCenterCard(firebaseFeatures: firebaseFeatures),
         const SizedBox(height: AppSpacing.medium),
         _FirebaseActionsCard(
           firebaseFeatures: firebaseFeatures,
@@ -178,6 +167,31 @@ class ProfileScreen extends StatelessWidget {
                 accentColor: AppColors.chartLine,
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        SectionCard(
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const ValueKey('profile_bottom_logout_button'),
+              onPressed: authProvider.isSigningOut
+                  ? null
+                  : () => _signOut(context),
+              icon: authProvider.isSigningOut
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    )
+                  : const Icon(Icons.logout),
+              label: Text(
+                authProvider.isSigningOut ? 'Đang đăng xuất...' : 'Đăng xuất',
+              ),
+            ),
           ),
         ),
       ],
@@ -313,17 +327,12 @@ class _FirebaseStatusCard extends StatelessWidget {
                     : AppColors.error,
               ),
               MetricPill(
-                label:
-                    '${firebaseFeatures.unreadNotificationCount} thông báo mới',
-                icon: Icons.notifications_outlined,
-                accentColor: AppColors.chartLine,
+                label: firebaseFeatures.notificationPermissionLabel == null
+                    ? 'FCM đang khởi tạo'
+                    : 'FCM: ${firebaseFeatures.notificationPermissionLabel}',
+                icon: Icons.mark_email_read_outlined,
+                accentColor: AppColors.accent,
               ),
-              if (firebaseFeatures.notificationPermissionLabel != null)
-                MetricPill(
-                  label: 'FCM: ${firebaseFeatures.notificationPermissionLabel}',
-                  icon: Icons.mark_email_read_outlined,
-                  accentColor: AppColors.accent,
-                ),
             ],
           ),
           if (firebaseFeatures.errorMessage != null) ...[
@@ -338,53 +347,23 @@ class _FirebaseStatusCard extends StatelessWidget {
           ],
           if (token != null && token.isNotEmpty) ...[
             const SizedBox(height: 12),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surfaceContainerHighest.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(AppRadius.small),
-                border: Border.all(color: colors.outlineVariant),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'FCM token',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                        TextButton.icon(
-                          key: const ValueKey('profile_copy_fcm_token_button'),
-                          onPressed: () async {
-                            await Clipboard.setData(ClipboardData(text: token));
-                            if (!context.mounted) {
-                              return;
-                            }
-                            ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(
-                                const SnackBar(
-                                  content: Text('Đã copy FCM token.'),
-                                ),
-                              );
-                          },
-                          icon: const Icon(Icons.copy, size: 16),
-                          label: const Text('Copy'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    SelectableText(
-                      token,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                key: const ValueKey('profile_copy_fcm_token_button'),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: token));
+                  if (!context.mounted) {
+                    return;
+                  }
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(content: Text('Đã copy FCM token.')),
+                    );
+                },
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy FCM token'),
               ),
             ),
           ],
@@ -413,11 +392,13 @@ class _RemoteConfigCard extends StatelessWidget {
             runSpacing: 8,
             children: [
               MetricPill(
-                label: 'max_journals = ${firebaseFeatures.maxJournals}',
+                label:
+                    'max_journals/max_journal = ${firebaseFeatures.maxJournals}',
                 icon: Icons.library_books_outlined,
               ),
               MetricPill(
-                label: 'max_keywords = ${firebaseFeatures.maxKeywords}',
+                label:
+                    'max_keywords/max_keyword = ${firebaseFeatures.maxKeywords}',
                 icon: Icons.tag_outlined,
                 accentColor: AppColors.chartLine,
               ),
@@ -430,8 +411,12 @@ class _RemoteConfigCard extends StatelessWidget {
               key: const ValueKey('profile_refresh_remote_config_button'),
               onPressed: firebaseFeatures.isRemoteConfigLoading
                   ? null
-                  : () {
-                      firebaseFeatures.refreshRemoteConfig();
+                  : () async {
+                      await firebaseFeatures.refreshRemoteConfig();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      await context.read<SearchProvider>().loadGlobalOverview();
                     },
               icon: firebaseFeatures.isRemoteConfigLoading
                   ? const SizedBox(
@@ -444,133 +429,6 @@ class _RemoteConfigCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _NotificationCenterCard extends StatelessWidget {
-  const _NotificationCenterCard({required this.firebaseFeatures});
-
-  final FirebaseFeaturesViewModel firebaseFeatures;
-
-  @override
-  Widget build(BuildContext context) {
-    final notifications = firebaseFeatures.notifications;
-    return SectionCard(
-      key: const ValueKey('profile_notifications_section'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle(
-            icon: Icons.notifications_active_outlined,
-            title: 'Notification Center',
-          ),
-          const SizedBox(height: 14),
-          if (notifications.isEmpty)
-            const AppEmptyState(
-              icon: Icons.notifications_none,
-              title: 'Chưa có thông báo',
-              message:
-                  'Thông báo FCM foreground/background sẽ được lưu tại đây.',
-            )
-          else
-            for (final notification in notifications.take(5)) ...[
-              _NotificationTile(
-                notification: notification,
-                onTap: () =>
-                    firebaseFeatures.markNotificationRead(notification.id),
-              ),
-              const Divider(height: 18),
-            ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  key: const ValueKey('profile_mark_notifications_read_button'),
-                  onPressed: notifications.isEmpty
-                      ? null
-                      : firebaseFeatures.markAllNotificationsRead,
-                  icon: const Icon(Icons.done_all),
-                  label: const Text('Đánh dấu đã đọc'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              IconButton.outlined(
-                key: const ValueKey('profile_clear_notifications_button'),
-                onPressed: notifications.isEmpty
-                    ? null
-                    : firebaseFeatures.clearNotifications,
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Xóa thông báo',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.notification, required this.onTap});
-
-  final AppNotification notification;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.small),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              notification.isRead
-                  ? Icons.notifications_none
-                  : Icons.notifications_active,
-              color: notification.isRead
-                  ? colors.onSurfaceVariant
-                  : colors.primary,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    notification.title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: notification.isRead
-                          ? FontWeight.w600
-                          : FontWeight.w900,
-                    ),
-                  ),
-                  if (notification.body.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      notification.body,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  Text(
-                    '${notification.source.name} • ${notification.receivedAt.toLocal()}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -743,15 +601,9 @@ class _SettingRow extends StatelessWidget {
 }
 
 class _UserAccountCard extends StatelessWidget {
-  const _UserAccountCard({
-    required this.user,
-    required this.isSigningOut,
-    required this.onSignOut,
-  });
+  const _UserAccountCard({required this.user});
 
   final AuthUser? user;
-  final bool isSigningOut;
-  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -759,58 +611,30 @@ class _UserAccountCard extends StatelessWidget {
     final colors = theme.colorScheme;
     final currentUser = user;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        const SectionTitle(
-          icon: Icons.verified_user_outlined,
-          title: 'Tài khoản Firebase',
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _UserAvatar(user: currentUser),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    currentUser?.nameOrEmail ?? 'Chưa đăng nhập',
-                    style: theme.textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    currentUser?.email ?? 'Firebase Authentication',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+        _UserAvatar(user: currentUser),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                currentUser?.nameOrEmail ?? 'Chưa đăng nhập',
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: onSignOut,
-            icon: isSigningOut
-                ? SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: colors.primary,
-                    ),
-                  )
-                : const Icon(Icons.logout),
-            label: Text(isSigningOut ? 'Đang đăng xuất...' : 'Đăng xuất'),
+              const SizedBox(height: 4),
+              Text(
+                currentUser?.email ?? 'Chưa có email',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ],

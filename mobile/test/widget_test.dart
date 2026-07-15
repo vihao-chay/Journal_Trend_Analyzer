@@ -151,7 +151,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cài đặt người dùng'), findsOneWidget);
-    expect(find.text('Tài khoản Firebase'), findsOneWidget);
     expect(find.text('researcher@example.com'), findsOneWidget);
     expect(find.text('Chế độ hiển thị'), findsOneWidget);
     expect(find.text('Màu chủ đạo'), findsOneWidget);

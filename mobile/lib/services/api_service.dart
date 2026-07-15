@@ -34,6 +34,7 @@ class ApiService {
   final Duration timeout;
 
   static const int defaultPublicationPageSize = 20;
+  static const int maxTopJournalLimit = 25;
 
   Future<PublicationPageResult> fetchPublicationsPage({
     String? query,
@@ -174,7 +175,7 @@ class ApiService {
   Future<List<JournalModel>> fetchTopJournals({
     String? query,
     ResearchFilters filters = ResearchFilters.empty,
-    int perPage = 10,
+    int perPage = maxTopJournalLimit,
   }) async {
     if (_isBlank(query) && filters.isEmpty) {
       final payload = await _getJson(
@@ -201,7 +202,9 @@ class ApiService {
   Future<List<JournalModel>> _hydrateJournalImpact(
     List<JournalModel> groupedJournals,
   ) async {
-    final topJournals = groupedJournals.take(10).toList(growable: false);
+    final topJournals = groupedJournals
+        .take(maxTopJournalLimit)
+        .toList(growable: false);
     final detailedJournals = await Future.wait(
       topJournals.map((journal) async {
         final id = _normalizeOpenAlexId(journal.id);

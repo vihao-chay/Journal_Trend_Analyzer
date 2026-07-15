@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/models/analytics_models.dart';
+import 'package:mobile/models/app_notification.dart';
 import 'package:mobile/models/auth_user.dart';
 import 'package:mobile/models/author_model.dart';
 import 'package:mobile/models/global_overview.dart';
@@ -25,11 +26,25 @@ Future<void> pumpAuthenticatedApp(dynamic $) async {
           email: 'patrol@example.com',
         ),
       ),
-      firebaseFeaturesProvider: FirebaseFeaturesViewModel(
-        autoInitialize: false,
-      ),
+      firebaseFeaturesProvider: seededFirebaseFeaturesProvider(),
     ),
   );
+}
+
+FirebaseFeaturesViewModel seededFirebaseFeaturesProvider() {
+  return FirebaseFeaturesViewModel(autoInitialize: false)
+    ..isFirebaseAvailable = true
+    ..notificationPermissionLabel = 'authorized'
+    ..fcmToken = 'patrol-fcm-token'
+    ..notifications = [
+      AppNotification(
+        id: 'patrol-notification-1',
+        title: 'New trending research topic',
+        body: 'Deep learning is trending in the current dataset.',
+        receivedAt: DateTime(2026, 7, 14, 9, 30),
+        source: AppNotificationSource.foreground,
+      ),
+    ];
 }
 
 SearchProvider seededSearchProvider() {

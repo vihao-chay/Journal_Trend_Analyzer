@@ -9,6 +9,7 @@ import 'screens/auth_gate.dart';
 import 'screens/home_screen.dart';
 import 'screens/journal_screen.dart';
 import 'screens/keywords_screen.dart';
+import 'screens/notifications_screen.dart';
 import 'screens/profile_screen.dart';
 import 'firebase/firebase_bootstrap.dart';
 import 'viewmodels/firebase_features_view_model.dart';
@@ -109,7 +110,7 @@ class _ResearchAnalyticsShellState extends State<ResearchAnalyticsShell> {
         final useRail = constraints.maxWidth >= 900;
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: const GradientAppBar(),
+          appBar: const GradientAppBar(actions: [_NotificationBellButton()]),
           body: useRail
               ? _DesktopBody(
                   selectedIndex: _selectedIndex,
@@ -133,6 +134,52 @@ class _ResearchAnalyticsShellState extends State<ResearchAnalyticsShell> {
 
   void _selectTab(int index) {
     setState(() => _selectedIndex = index);
+  }
+}
+
+class _NotificationBellButton extends StatelessWidget {
+  const _NotificationBellButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final unreadCount = context.select<FirebaseFeaturesViewModel, int>(
+      (provider) => provider.unreadNotificationCount,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: IconButton(
+        key: const ValueKey('app_notification_bell_button'),
+        tooltip: 'Thông báo',
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const NotificationsScreen(),
+            ),
+          );
+        },
+        icon: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.notifications_outlined, color: Colors.white),
+            if (unreadCount > 0)
+              Positioned(
+                right: -1,
+                top: -1,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

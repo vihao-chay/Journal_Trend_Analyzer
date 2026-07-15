@@ -19,9 +19,19 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('profile_notifications_section')),
+      find.byKey(const ValueKey('profile_copy_fcm_token_button')),
       findsOneWidget,
     );
+  });
+
+  patrolTest('opens Notification screen from app bar bell', ($) async {
+    await pumpAuthenticatedApp($);
+
+    await $(find.byKey(const ValueKey('app_notification_bell_button'))).tap();
+    await $.pumpAndSettle();
+
+    expect(find.byKey(const Key('notifications_screen')), findsOneWidget);
+    expect(find.text('Trung tâm thông báo'), findsOneWidget);
   });
 
   patrolTest('supports theme and sign-out controls', ($) async {
@@ -29,7 +39,10 @@ void main() {
     await openBottomTabIndex($, 3);
 
     expect(find.textContaining('Firebase'), findsWidgets);
-    expect(find.byIcon(Icons.logout), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile_bottom_logout_button')),
+      findsOneWidget,
+    );
     expect(find.byIcon(Icons.dark_mode_outlined), findsOneWidget);
   });
 
@@ -37,7 +50,10 @@ void main() {
     await pumpAuthenticatedApp($);
     await openBottomTabIndex($, 3);
 
-    await $(find.byIcon(Icons.logout)).tap();
+    await $.scrollUntilVisible(
+      finder: find.byKey(const ValueKey('profile_bottom_logout_button')),
+    );
+    await $(find.byKey(const ValueKey('profile_bottom_logout_button'))).tap();
     await $.pumpAndSettle();
 
     expect(find.text('OpenAlex Research Analytics'), findsOneWidget);
