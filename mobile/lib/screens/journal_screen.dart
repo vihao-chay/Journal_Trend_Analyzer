@@ -7,6 +7,7 @@ import '../models/journal_model.dart';
 import '../models/publication_model.dart';
 import '../providers/search_provider.dart';
 import '../services/api_service.dart';
+import '../viewmodels/firebase_features_view_model.dart';
 import '../widgets/app_widgets.dart';
 import 'detail_screens.dart';
 
@@ -52,15 +53,13 @@ class _JournalScreenState extends State<JournalScreen> {
     final isSearchLoading = context.select<SearchProvider, bool>(
       (provider) => provider.isSearchLoading,
     );
-    final isJournalPublicationsLoading =
-        context.select<SearchProvider, bool>(
+    final isJournalPublicationsLoading = context.select<SearchProvider, bool>(
       (provider) => provider.isJournalPublicationsLoading,
     );
     final searchError = context.select<SearchProvider, String?>(
       (provider) => provider.searchError,
     );
-    final journalPublicationsError =
-        context.select<SearchProvider, String?>(
+    final journalPublicationsError = context.select<SearchProvider, String?>(
       (provider) => provider.journalPublicationsError,
     );
     final overview = context.select<SearchProvider, dynamic>(
@@ -69,8 +68,7 @@ class _JournalScreenState extends State<JournalScreen> {
     final searchJournals = context.select<SearchProvider, List<JournalModel>>(
       (provider) => provider.topJournals,
     );
-    final publications =
-        context.select<SearchProvider, List<PublicationModel>>(
+    final publications = context.select<SearchProvider, List<PublicationModel>>(
       (provider) => provider.journalPagePublications,
     );
     final publicationTotalCount = context.select<SearchProvider, int>(
@@ -79,9 +77,11 @@ class _JournalScreenState extends State<JournalScreen> {
     final journalPublicationPage = context.select<SearchProvider, int>(
       (provider) => provider.journalPublicationPage,
     );
-    final journalPublicationTotalPages =
-        context.select<SearchProvider, int>(
+    final journalPublicationTotalPages = context.select<SearchProvider, int>(
       (provider) => provider.journalPublicationTotalPages,
+    );
+    final maxJournals = context.select<FirebaseFeaturesViewModel, int>(
+      (provider) => provider.maxJournals,
     );
 
     final journals = hasSearched
@@ -92,7 +92,9 @@ class _JournalScreenState extends State<JournalScreen> {
         : 'Tạp chí nổi bật trên OpenAlex';
     final isPublicationListLoading =
         isJournalPublicationsLoading || (isSearchLoading && hasSearched);
-    final publicationListError = hasSearched ? searchError : journalPublicationsError;
+    final publicationListError = hasSearched
+        ? searchError
+        : journalPublicationsError;
 
     return ScreenScroll(
       onRefresh: _refreshJournalData,
@@ -124,7 +126,7 @@ class _JournalScreenState extends State<JournalScreen> {
               else
                 HorizontalBarChart(
                   data: journals
-                      .take(8)
+                      .take(maxJournals)
                       .map<ChartBarData>(
                         (journal) => ChartBarData(
                           label: journal.displayName,
@@ -132,12 +134,12 @@ class _JournalScreenState extends State<JournalScreen> {
                         ),
                       )
                       .toList(growable: false),
+                  maxItems: maxJournals,
                   onTap: (index) {
                     Navigator.of(context).push(
                       MaterialPageRoute<void>(
-                        builder: (_) => JournalDetailScreen(
-                          journal: journals[index],
-                        ),
+                        builder: (_) =>
+                            JournalDetailScreen(journal: journals[index]),
                       ),
                     );
                   },
@@ -146,7 +148,7 @@ class _JournalScreenState extends State<JournalScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.medium),
-        _JournalList(journals: journals),
+        _JournalList(journals: journals, maxJournals: maxJournals),
         const SizedBox(height: AppSpacing.large),
         const Divider(height: 1),
         const SizedBox(height: AppSpacing.large),
@@ -303,9 +305,9 @@ class _PublicationPaginationBar extends StatelessWidget {
               'Trang $currentPage / $totalPages',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
           OutlinedButton(
@@ -326,9 +328,10 @@ class _PublicationPaginationBar extends StatelessWidget {
 }
 
 class _JournalList extends StatelessWidget {
-  const _JournalList({required this.journals});
+  const _JournalList({required this.journals, required this.maxJournals});
 
   final List<JournalModel> journals;
+  final int maxJournals;
 
   @override
   Widget build(BuildContext context) {
@@ -347,7 +350,11 @@ class _JournalList extends StatelessWidget {
             message: 'Dữ liệu tạp chí sẽ xuất hiện sau khi tải OpenAlex.',
           )
         else
-          for (var index = 0; index < journals.take(10).length; index++) ...[
+          for (
+            var index = 0;
+            index < journals.take(maxJournals).length;
+            index++
+          ) ...[
             JournalCard(
               journal: journals[index],
               rank: index + 1,

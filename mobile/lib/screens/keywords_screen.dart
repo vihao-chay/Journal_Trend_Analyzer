@@ -5,8 +5,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
 import '../models/author_model.dart';
+import '../models/global_overview.dart';
 import '../models/journal_model.dart';
 import '../providers/search_provider.dart';
+import '../services/publication_analytics.dart';
+import '../viewmodels/firebase_features_view_model.dart';
 import '../widgets/app_widgets.dart';
 import 'detail_screens.dart';
 
@@ -24,8 +27,11 @@ class KeywordsScreen extends StatelessWidget {
     final isSearchLoading = context.select<SearchProvider, bool>(
       (provider) => provider.isSearchLoading,
     );
-    final overview = context.select<SearchProvider, dynamic>(
+    final overview = context.select<SearchProvider, GlobalOverview?>(
       (provider) => provider.globalOverview,
+    );
+    final maxKeywords = context.select<FirebaseFeaturesViewModel, int>(
+      (provider) => provider.maxKeywords,
     );
     final searchAuthors = context.select<SearchProvider, List<AuthorModel>>(
       (provider) => provider.topAuthors,
@@ -33,9 +39,12 @@ class KeywordsScreen extends StatelessWidget {
     final searchJournals = context.select<SearchProvider, List<JournalModel>>(
       (provider) => provider.topJournals,
     );
-    final searchCitationVelocity =
-        context.select<SearchProvider, Map<String, int>>(
-      (provider) => provider.citationVelocity,
+    final searchCitationVelocity = context
+        .select<SearchProvider, Map<String, int>>(
+          (provider) => provider.citationVelocity,
+        );
+    final searchKeywords = context.select<SearchProvider, List<KeywordMetric>>(
+      (provider) => provider.keywordFrontiers,
     );
 
     final authors = hasSearched
@@ -47,6 +56,10 @@ class KeywordsScreen extends StatelessWidget {
     final citationVelocity = hasSearched
         ? searchCitationVelocity
         : overview?.citationVelocity ?? const <String, int>{};
+    final keywords = hasSearched
+        ? searchKeywords
+        : overview?.trendingKeywords ?? const <KeywordMetric>[];
+    final visibleKeywords = keywords.take(maxKeywords).toList(growable: false);
 
     return ScreenScroll(
       onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
@@ -65,7 +78,20 @@ class KeywordsScreen extends StatelessWidget {
           const LinearProgressIndicator(minHeight: 5),
         ],
         const SizedBox(height: AppSpacing.medium),
+        _KeywordFrontiersSection(
+          keywords: visibleKeywords,
+          maxKeywords: maxKeywords,
+          onOpenKeyword: (keywordMetric) {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => KeywordDetailScreen(keyword: keywordMetric),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: AppSpacing.medium),
         SectionCard(
+          key: const ValueKey('keywords_citation_velocity_chart'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -80,6 +106,7 @@ class KeywordsScreen extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
+          key: const ValueKey('keywords_author_scatter_chart'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -105,14 +132,138 @@ class KeywordsScreen extends StatelessWidget {
           (author) => ScatterPointData(
             label: author.displayName,
             x: author.worksCount.toDouble(),
-            y: (author.citedByCount > 0
-                    ? author.citedByCount
-                    : author.worksCount * 12)
-                .toDouble(),
+            y:
+                (author.citedByCount > 0
+                        ? author.citedByCount
+                        : author.worksCount * 12)
+                    .toDouble(),
             size: author.worksCount.toDouble(),
           ),
         )
         .toList(growable: false);
+  }
+}
+
+class _KeywordFrontiersSection extends StatelessWidget {
+  const _KeywordFrontiersSection({
+    required this.keywords,
+    required this.maxKeywords,
+    required this.onOpenKeyword,
+  });
+
+  final List<KeywordMetric> keywords;
+  final int maxKeywords;
+  final ValueChanged<KeywordMetric> onOpenKeyword;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      key: const ValueKey('keywords_frontier_section'),
+      accentColor: AppColors.chartLine,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionTitle(
+            icon: Icons.bubble_chart_outlined,
+            title: 'Cụm từ khóa nổi bật',
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Remote Config đang giới hạn $maxKeywords từ khóa hiển thị.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 14),
+          BubbleChart(
+            bubbles: keywords
+                .map(
+                  (keyword) => BubblePointData(
+                    label: keyword.displayName,
+                    value: keyword.worksCount,
+                    subtitle: keyword.field,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 14),
+          if (keywords.isEmpty)
+            const SizedBox.shrink()
+          else
+            for (var index = 0; index < keywords.length; index++) ...[
+              _KeywordListTile(
+                keyword: keywords[index],
+                rank: index + 1,
+                onTap: () => onOpenKeyword(keywords[index]),
+              ),
+              if (index < keywords.length - 1) const Divider(height: 18),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KeywordListTile extends StatelessWidget {
+  const _KeywordListTile({
+    required this.keyword,
+    required this.rank,
+    required this.onTap,
+  });
+
+  final KeywordMetric keyword;
+  final int rank;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: ValueKey('keyword_tile_$rank'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.small),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
+              child: Text(
+                '$rank',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    keyword.displayName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    [
+                      '${formatCompactNumber(keyword.worksCount)} bài',
+                      if (keyword.field != null) keyword.field!,
+                    ].join(' • '),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -148,8 +299,11 @@ class _AuthorsAndJournals extends StatelessWidget {
                   author: authors[index],
                   rank: index + 1,
                   onTap: () {
-                    final url = Uri.parse('https://openalex.org/${authors[index].id}');
-                    launchUrl(url);
+                    final raw = authors[index].id.trim();
+                    final url = Uri.tryParse(raw)?.hasScheme == true
+                        ? Uri.parse(raw)
+                        : Uri.parse('https://openalex.org/$raw');
+                    launchUrl(url, mode: LaunchMode.externalApplication);
                   },
                 ),
                 const SizedBox(height: 12),

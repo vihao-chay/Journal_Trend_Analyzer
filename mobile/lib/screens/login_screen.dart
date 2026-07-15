@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
+import '../viewmodels/firebase_features_view_model.dart';
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -66,7 +67,7 @@ class LoginScreen extends StatelessWidget {
                       FilledButton.icon(
                         onPressed: auth.isSigningIn
                             ? null
-                            : () => auth.signInWithGoogle(),
+                            : () => _signInWithGoogle(context),
                         icon: auth.isSigningIn
                             ? const SizedBox(
                                 width: 18,
@@ -96,6 +97,16 @@ class LoginScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _signInWithGoogle(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    final firebaseFeatures = context.read<FirebaseFeaturesViewModel>();
+    await auth.signInWithGoogle();
+    if (!auth.isAuthenticated) {
+      return;
+    }
+    await firebaseFeatures.trackLogin();
   }
 }
 

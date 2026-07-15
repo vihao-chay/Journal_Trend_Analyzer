@@ -1,12 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme/app_theme.dart';
 import '../models/analytics_models.dart';
+import '../models/author_model.dart';
 import '../models/global_overview.dart';
+import '../models/journal_model.dart';
+import '../models/publication_model.dart';
 import '../providers/search_provider.dart';
 import '../services/publication_analytics.dart';
+import '../viewmodels/firebase_features_view_model.dart';
 import '../widgets/app_widgets.dart';
+import 'detail_screens.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,7 +45,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (keyword.isEmpty) return;
     _searchController.text = keyword;
     FocusScope.of(context).unfocus();
-    context.read<SearchProvider>().search(keyword);
+    unawaited(
+      context.read<FirebaseFeaturesViewModel>().trackSearchTopic(keyword),
+    );
+    unawaited(context.read<SearchProvider>().search(keyword));
   }
 
   @override
@@ -55,12 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasSearched = context.select<SearchProvider, bool>(
       (provider) => provider.hasSearched,
     );
-    final isGlobalLoading = context.select<SearchProvider, bool>(
-      (provider) => provider.isGlobalLoading,
-    );
-    final globalError = context.select<SearchProvider, String?>(
-      (provider) => provider.globalError,
-    );
     final isSearchLoading = context.select<SearchProvider, bool>(
       (provider) => provider.isSearchLoading,
     );
@@ -73,11 +77,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final publicationTotalCount = context.select<SearchProvider, int>(
       (provider) => provider.publicationTotalCount,
     );
-    final searchCitationTotal = context.select<SearchProvider, int>(
-      (provider) => provider.searchCitationTotal,
-    );
     final searchAverageCitations = context.select<SearchProvider, double>(
       (provider) => provider.searchAverageCitations,
+    );
+    final publicationTrend = context.select<SearchProvider, Map<String, int>>(
+      (provider) => provider.publicationTrend,
+    );
+    final publications = context.select<SearchProvider, List<PublicationModel>>(
+      (provider) => provider.publications,
+    );
+    final dashboardStats = context.select<SearchProvider, DashboardStats>(
+      (provider) => provider.searchDashboardStats,
+    );
+    final mostInfluentialPublication = context
+        .select<SearchProvider, PublicationModel?>(
+          (provider) => provider.mostInfluentialPublication,
+        );
+    final topAuthors = context.select<SearchProvider, List<AuthorModel>>(
+      (provider) => provider.topAuthors,
+    );
+    final topJournals = context.select<SearchProvider, List<JournalModel>>(
+      (provider) => provider.topJournals,
     );
     final countryOutputs = context.select<SearchProvider, List<CountryOutput>>(
       (provider) => provider.countryOutputs,
@@ -93,17 +113,28 @@ class _HomeScreenState extends State<HomeScreen> {
     final suggestedTopics = apiTopics.isEmpty ? _fallbackTopics : apiTopics;
 
     return ScreenScroll(
-      onRefresh: () => context.read<SearchProvider>().loadGlobalOverview(),
+      key: const ValueKey('home_screen_content'),
+      onRefresh: () {
+        final provider = context.read<SearchProvider>();
+        final currentKeyword = provider.keyword?.trim();
+        if (provider.hasSearched &&
+            currentKeyword != null &&
+            currentKeyword.isNotEmpty) {
+          return provider.search(currentKeyword);
+        }
+        return provider.loadGlobalOverview();
+      },
       children: [
         const ScreenHeader(
+          key: ValueKey('home_screen_header'),
           title: 'Trang chủ nghiên cứu',
           subtitle: 'Tìm kiếm chủ đề và xem nhanh các chỉ số học thuật.',
           badge: 'OpenAlex',
         ),
         const SizedBox(height: AppSpacing.medium),
-        
-        // Cùng một ô cho Search và Filter
+
         _CompactSearchAndFilterCard(
+          key: const ValueKey('home_search_and_filter'),
           searchController: _searchController,
           onSubmitSearch: _submitSearch,
           filters: filters,
@@ -111,33 +142,38 @@ class _HomeScreenState extends State<HomeScreen> {
           recentSearches: recentSearches,
           suggestedTopics: suggestedTopics,
         ),
-        
-        const SizedBox(height: AppSpacing.small),
-        
-        // Phần thống kê thu nhỏ
-        _CompactOverviewMetrics(
-          overview: overview,
-          isLoading: isGlobalLoading,
-          error: globalError,
-          hasSearched: hasSearched,
-          publicationTotalCount: publicationTotalCount,
-          searchCitationTotal: searchCitationTotal,
-        ),
-        
+
         if (hasSearched) ...[
-          const SizedBox(height: AppSpacing.small),
-          _SearchStateCard(
+          const SizedBox(height: AppSpacing.medium),
+          _SearchResultsDashboard(
             keyword: keyword,
             isLoading: isSearchLoading,
             error: searchError,
             publicationTotalCount: publicationTotalCount,
-            searchCitationTotal: searchCitationTotal,
             searchAverageCitations: searchAverageCitations,
+            publicationTrend: publicationTrend,
+            dashboardStats: dashboardStats,
+            mostInfluentialPublication: mostInfluentialPublication,
+            topAuthors: topAuthors,
+            topJournals: topJournals,
+            publications: publications,
+            onRetry: keyword == null || keyword.trim().isEmpty
+                ? null
+                : () => context.read<SearchProvider>().search(keyword),
+            onOpenPublication: (publication) {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      PublicationDetailScreen(publication: publication),
+                ),
+              );
+            },
           ),
         ],
-        
+
         const SizedBox(height: AppSpacing.medium),
         SectionCard(
+          key: const ValueKey('home_country_output_section'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -161,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _CompactSearchAndFilterCard extends StatefulWidget {
   const _CompactSearchAndFilterCard({
+    super.key,
     required this.searchController,
     required this.onSubmitSearch,
     required this.filters,
@@ -177,10 +214,12 @@ class _CompactSearchAndFilterCard extends StatefulWidget {
   final List<String> suggestedTopics;
 
   @override
-  State<_CompactSearchAndFilterCard> createState() => _CompactSearchAndFilterCardState();
+  State<_CompactSearchAndFilterCard> createState() =>
+      _CompactSearchAndFilterCardState();
 }
 
-class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard> {
+class _CompactSearchAndFilterCardState
+    extends State<_CompactSearchAndFilterCard> {
   late final TextEditingController _fromYearController;
   late final TextEditingController _toYearController;
   bool _isFilterExpanded = false;
@@ -213,16 +252,19 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
     _toYearController.text = widget.filters.toYear?.toString() ?? '';
   }
 
-  void _applyFilter() {
+  Future<void> _applyFilter() async {
     FocusScope.of(context).unfocus();
-    context.read<SearchProvider>().updateFilters(
+    await context.read<SearchProvider>().updateFilters(
       ResearchFilters(
         fromYear: int.tryParse(_fromYearController.text.trim()),
         toYear: int.tryParse(_toYearController.text.trim()),
       ),
       rerunSearch: widget.hasSearched,
     );
-    if (widget.searchController.text.trim().isNotEmpty) {
+
+    if (!widget.hasSearched &&
+        mounted &&
+        widget.searchController.text.trim().isNotEmpty) {
       widget.onSubmitSearch();
     }
   }
@@ -247,6 +289,7 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
             children: [
               Expanded(
                 child: ResearchSearchBar(
+                  key: const ValueKey('home_topic_search_field'),
                   controller: widget.searchController,
                   onSubmitted: widget.onSubmitSearch,
                   onSearchPressed: () => widget.onSubmitSearch(),
@@ -255,7 +298,11 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
               ),
               if (widget.suggestedTopics.isNotEmpty)
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.local_fire_department_outlined, color: AppColors.primary),
+                  key: const ValueKey('home_suggested_topics_button'),
+                  icon: const Icon(
+                    Icons.local_fire_department_outlined,
+                    color: AppColors.primary,
+                  ),
                   tooltip: 'Chủ đề gợi ý',
                   onSelected: (topic) {
                     widget.searchController.text = topic;
@@ -263,14 +310,12 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
                   },
                   itemBuilder: (context) {
                     return widget.suggestedTopics.map((topic) {
-                      return PopupMenuItem(
-                        value: topic,
-                        child: Text(topic),
-                      );
+                      return PopupMenuItem(value: topic, child: Text(topic));
                     }).toList();
                   },
                 ),
               IconButton(
+                key: const ValueKey('home_filter_toggle_button'),
                 icon: Icon(
                   _isFilterExpanded ? Icons.filter_list_off : Icons.filter_list,
                   color: AppColors.primary,
@@ -288,7 +333,11 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.date_range, size: 16, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.date_range,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -298,7 +347,10 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
                     decoration: const InputDecoration(
                       labelText: 'Từ năm',
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
@@ -311,12 +363,16 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
                     decoration: const InputDecoration(
                       labelText: 'Đến năm',
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  key: const ValueKey('home_filter_reset_button'),
                   icon: const Icon(Icons.refresh, size: 20),
                   onPressed: _resetFilter,
                   color: AppColors.error,
@@ -326,6 +382,7 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  key: const ValueKey('home_filter_apply_button'),
                   icon: const Icon(Icons.check, size: 20),
                   onPressed: _applyFilter,
                   color: AppColors.secondary,
@@ -335,91 +392,7 @@ class _CompactSearchAndFilterCardState extends State<_CompactSearchAndFilterCard
                 ),
               ],
             ),
-          ]
-        ],
-      ),
-    );
-  }
-}
-
-class _CompactOverviewMetrics extends StatelessWidget {
-  const _CompactOverviewMetrics({
-    required this.overview,
-    required this.isLoading,
-    required this.error,
-    required this.hasSearched,
-    required this.publicationTotalCount,
-    required this.searchCitationTotal,
-  });
-
-  final GlobalOverview? overview;
-  final bool isLoading;
-  final String? error;
-  final bool hasSearched;
-  final int publicationTotalCount;
-  final int searchCitationTotal;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading && overview == null) {
-      return const SectionCard(
-        padding: EdgeInsets.all(12),
-        child: SizedBox(
-          height: 40,
-          child: AppLoadingState(message: 'Đang tải thống kê...'),
-        ),
-      );
-    }
-
-    if (overview == null) {
-      return SectionCard(
-        padding: const EdgeInsets.all(12),
-        child: AppErrorState(
-          message: error ?? 'Không thể tải thống kê.',
-          onRetry: () => context.read<SearchProvider>().loadGlobalOverview(),
-        ),
-      );
-    }
-
-    final loadedOverview = overview!;
-
-    return SectionCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionTitle(
-            icon: Icons.query_stats,
-            title: 'Thống kê tổng quan OpenAlex',
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              MetricPill(
-                label: '${formatCompactNumber(loadedOverview.totalWorks)} Bài báo',
-                icon: Icons.article_outlined,
-                accentColor: AppColors.secondary,
-              ),
-              MetricPill(
-                label: '${formatCompactNumber(loadedOverview.totalAuthors)} Tác giả',
-                icon: Icons.groups_outlined,
-                accentColor: AppColors.chartLine,
-              ),
-              MetricPill(
-                label: '${formatCompactNumber(loadedOverview.totalSources)} Tạp chí',
-                icon: Icons.library_books_outlined,
-                accentColor: AppColors.accent,
-              ),
-              if (loadedOverview.peakYear != null)
-                MetricPill(
-                  label: 'Đỉnh: ${loadedOverview.peakYear}',
-                  icon: Icons.calendar_month,
-                  accentColor: AppColors.primaryLight,
-                ),
-            ],
-          ),
+          ],
         ],
       ),
     );
@@ -432,20 +405,49 @@ class _SearchStateCard extends StatelessWidget {
     required this.isLoading,
     required this.error,
     required this.publicationTotalCount,
-    required this.searchCitationTotal,
     required this.searchAverageCitations,
+    required this.searchCitationTotal,
+    required this.publicationTrend,
+    required this.dashboardStats,
+    required this.topAuthors,
+    required this.topJournals,
   });
 
   final String? keyword;
   final bool isLoading;
   final String? error;
   final int publicationTotalCount;
-  final int searchCitationTotal;
   final double searchAverageCitations;
+  final int searchCitationTotal;
+  final Map<String, int> publicationTrend;
+  final DashboardStats dashboardStats;
+  final List<AuthorModel> topAuthors;
+  final List<JournalModel> topJournals;
 
   @override
   Widget build(BuildContext context) {
+    final averageCitations = searchAverageCitations > 0
+        ? searchAverageCitations
+        : dashboardStats.averageCitations;
+    final peakYear =
+        _peakYearFromTrend(publicationTrend) ??
+        (dashboardStats.topYear == null
+            ? null
+            : _YearMetric(
+                dashboardStats.topYear!,
+                dashboardStats.topYearCount,
+              ));
+    final topAuthor = topAuthors.isNotEmpty ? topAuthors.first : null;
+    final topJournal = topJournals.isNotEmpty ? topJournals.first : null;
+    final topAuthorName = topAuthor?.displayName ?? dashboardStats.topAuthor;
+    final topAuthorCount =
+        topAuthor?.worksCount ?? dashboardStats.topAuthorCount;
+    final topJournalName = topJournal?.displayName ?? dashboardStats.topJournal;
+    final topJournalCount =
+        topJournal?.worksCount ?? dashboardStats.topJournalCount;
+
     return SectionCard(
+      key: const ValueKey('home_topic_overview_dashboard'),
       padding: const EdgeInsets.all(12),
       accentColor: AppColors.chartLine,
       child: Column(
@@ -453,7 +455,9 @@ class _SearchStateCard extends StatelessWidget {
         children: [
           SectionTitle(
             icon: Icons.analytics_outlined,
-            title: keyword == null ? 'Kết quả tìm kiếm' : 'Kết quả: "$keyword"',
+            title: keyword == null
+                ? 'Tổng quan chủ đề'
+                : 'Tổng quan chủ đề: "$keyword"',
           ),
           const SizedBox(height: 10),
           if (isLoading)
@@ -473,7 +477,7 @@ class _SearchStateCard extends StatelessWidget {
               children: [
                 MetricPill(
                   label:
-                      '${formatCompactNumber(publicationTotalCount)} kết quả',
+                      '${formatCompactNumber(publicationTotalCount)} bài báo',
                   icon: Icons.cloud_done_outlined,
                   accentColor: AppColors.secondary,
                 ),
@@ -483,8 +487,209 @@ class _SearchStateCard extends StatelessWidget {
                   icon: Icons.format_quote,
                   accentColor: AppColors.accent,
                 ),
+                MetricPill(
+                  label: '${averageCitations.toStringAsFixed(1)} trích dẫn/bài',
+                  icon: Icons.calculate_outlined,
+                  accentColor: AppColors.chartLine,
+                ),
               ],
             ),
+          if (!isLoading && error == null) ...[
+            if (peakYear != null) ...[
+              const SizedBox(height: 12),
+              HighlightTile(
+                icon: Icons.calendar_month_outlined,
+                text:
+                    'Năm hoạt động mạnh nhất: ${peakYear.year} (${formatCompactNumber(peakYear.count)} bài).',
+              ),
+            ],
+            if (topAuthorName != null && topAuthorName.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              HighlightTile(
+                icon: Icons.person_outline,
+                text:
+                    'Tác giả đóng góp nhiều nhất: $topAuthorName (${formatCompactNumber(topAuthorCount)} bài).',
+              ),
+            ],
+            if (topJournalName != null && topJournalName.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              HighlightTile(
+                icon: Icons.menu_book_outlined,
+                text:
+                    'Tạp chí nổi bật nhất: $topJournalName (${formatCompactNumber(topJournalCount)} bài).',
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _YearMetric {
+  const _YearMetric(this.year, this.count);
+
+  final int year;
+  final int count;
+}
+
+_YearMetric? _peakYearFromTrend(Map<String, int> publicationTrend) {
+  _YearMetric? peak;
+  for (final entry in publicationTrend.entries) {
+    final year = int.tryParse(entry.key);
+    if (year == null) {
+      continue;
+    }
+    if (peak == null || entry.value > peak.count) {
+      peak = _YearMetric(year, entry.value);
+    }
+  }
+  return peak;
+}
+
+class _SearchResultsDashboard extends StatelessWidget {
+  const _SearchResultsDashboard({
+    required this.keyword,
+    required this.isLoading,
+    required this.error,
+    required this.publicationTotalCount,
+    required this.searchAverageCitations,
+    required this.publicationTrend,
+    required this.dashboardStats,
+    required this.mostInfluentialPublication,
+    required this.topAuthors,
+    required this.topJournals,
+    required this.publications,
+    required this.onRetry,
+    required this.onOpenPublication,
+  });
+
+  final String? keyword;
+  final bool isLoading;
+  final String? error;
+  final int publicationTotalCount;
+  final double searchAverageCitations;
+  final Map<String, int> publicationTrend;
+  final DashboardStats dashboardStats;
+  final PublicationModel? mostInfluentialPublication;
+  final List<AuthorModel> topAuthors;
+  final List<JournalModel> topJournals;
+  final List<PublicationModel> publications;
+  final VoidCallback? onRetry;
+  final ValueChanged<PublicationModel> onOpenPublication;
+
+  @override
+  Widget build(BuildContext context) {
+    final influential =
+        mostInfluentialPublication ?? dashboardStats.mostCitedPublication;
+
+    if (isLoading && publications.isEmpty) {
+      return const SectionCard(
+        key: ValueKey('home_search_loading_card'),
+        child: SizedBox(
+          height: 180,
+          child: AppLoadingState(message: 'Đang phân tích chủ đề...'),
+        ),
+      );
+    }
+
+    if (error != null && publications.isEmpty) {
+      return SectionCard(
+        key: const ValueKey('home_search_error_card'),
+        child: AppErrorState(message: error!, onRetry: onRetry),
+      );
+    }
+
+    return Column(
+      key: const ValueKey('home_search_results_dashboard'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SearchStateCard(
+          keyword: keyword,
+          isLoading: isLoading,
+          error: error,
+          publicationTotalCount: publicationTotalCount,
+          searchAverageCitations: searchAverageCitations,
+          searchCitationTotal: dashboardStats.totalCitations,
+          publicationTrend: publicationTrend,
+          dashboardStats: dashboardStats,
+          topAuthors: topAuthors,
+          topJournals: topJournals,
+        ),
+        const SizedBox(height: AppSpacing.medium),
+        _TrendCard(publicationTrend: publicationTrend),
+        if (influential != null) ...[
+          const SizedBox(height: AppSpacing.medium),
+          SectionCard(
+            key: const ValueKey('home_most_influential_publication'),
+            accentColor: AppColors.accent,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionTitle(
+                  icon: Icons.workspace_premium_outlined,
+                  title: 'Bài báo ảnh hưởng nhất',
+                ),
+                const SizedBox(height: 14),
+                PaperCard(
+                  publication: influential,
+                  onTap: () => onOpenPublication(influential),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: AppSpacing.medium),
+        SectionCard(
+          key: const ValueKey('home_publication_results'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SectionTitle(
+                icon: Icons.article_outlined,
+                title: 'Bài báo phù hợp',
+              ),
+              const SizedBox(height: 14),
+              if (publications.isEmpty)
+                const AppEmptyState(
+                  icon: Icons.article_outlined,
+                  title: 'Chưa có bài báo',
+                  message: 'Thử một chủ đề khác hoặc nới khoảng năm lọc.',
+                )
+              else
+                for (final publication in publications.take(8)) ...[
+                  PaperCard(
+                    publication: publication,
+                    onTap: () => onOpenPublication(publication),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrendCard extends StatelessWidget {
+  const _TrendCard({required this.publicationTrend});
+
+  final Map<String, int> publicationTrend;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      key: const ValueKey('home_publication_trend_chart'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionTitle(
+            icon: Icons.show_chart,
+            title: 'Xu hướng công bố theo năm',
+          ),
+          const SizedBox(height: 14),
+          SizedBox(height: 220, child: LineChart(series: publicationTrend)),
         ],
       ),
     );

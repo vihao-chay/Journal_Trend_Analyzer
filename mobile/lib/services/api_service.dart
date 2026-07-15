@@ -34,6 +34,7 @@ class ApiService {
   final Duration timeout;
 
   static const int defaultPublicationPageSize = 20;
+  static const int maxTopJournalLimit = 25;
 
   Future<PublicationPageResult> fetchPublicationsPage({
     String? query,
@@ -94,10 +95,17 @@ class ApiService {
     ).map(PublicationModel.fromJson).toList(growable: false);
   }
 
-  Future<PublicationModel?> fetchMostCitedWork() async {
-    final payload = await _getJson(
-      _buildUri('/works', {'sort': 'cited_by_count:desc', 'per_page': '1'}),
+  Future<PublicationModel?> fetchMostCitedWork({
+    String? query,
+    ResearchFilters filters = ResearchFilters.empty,
+  }) async {
+    final queryParameters = _buildWorksQuery(
+      search: query,
+      filters: filters,
+      perPage: 1,
+      sort: 'cited_by_count:desc',
     );
+    final payload = await _getJson(_buildUri('/works', queryParameters));
     final results = _asJsonList(payload['results']);
     if (results.isEmpty) {
       return null;
@@ -167,7 +175,7 @@ class ApiService {
   Future<List<JournalModel>> fetchTopJournals({
     String? query,
     ResearchFilters filters = ResearchFilters.empty,
-    int perPage = 10,
+    int perPage = maxTopJournalLimit,
   }) async {
     if (_isBlank(query) && filters.isEmpty) {
       final payload = await _getJson(
@@ -194,7 +202,9 @@ class ApiService {
   Future<List<JournalModel>> _hydrateJournalImpact(
     List<JournalModel> groupedJournals,
   ) async {
-    final topJournals = groupedJournals.take(10).toList(growable: false);
+    final topJournals = groupedJournals
+        .take(maxTopJournalLimit)
+        .toList(growable: false);
     final detailedJournals = await Future.wait(
       topJournals.map((journal) async {
         final id = _normalizeOpenAlexId(journal.id);
@@ -216,7 +226,10 @@ class ApiService {
       }),
     );
 
-    return [...detailedJournals, ...groupedJournals.skip(detailedJournals.length)];
+    return [
+      ...detailedJournals,
+      ...groupedJournals.skip(detailedJournals.length),
+    ];
   }
 
   Future<List<AuthorModel>> fetchTopAuthors({
@@ -631,7 +644,7 @@ class ApiService {
     while (true) {
       try {
         final response = await _client.get(uri).timeout(timeout);
-        
+
         if ((response.statusCode == 429 || response.statusCode >= 500) &&
             retries < maxRetries) {
           retries++;
@@ -660,7 +673,9 @@ class ApiService {
       } on TimeoutException {
         throw const ApiException('OpenAlex phản hồi quá lâu.');
       } on SocketException {
-        throw const ApiException('Không có kết nối internet. Vui lòng thử lại.');
+        throw const ApiException(
+          'Không có kết nối internet. Vui lòng thử lại.',
+        );
       } on http.ClientException {
         throw const ApiException('Không thể kết nối tới OpenAlex.');
       } on FormatException {
